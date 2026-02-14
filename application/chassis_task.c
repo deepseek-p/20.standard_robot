@@ -525,19 +525,19 @@ static void chassis_set_contorl(chassis_move_t *chassis_move_control)
 }
 
 /**
-  * @brief          four mecanum wheels speed is calculated by three param. 
+  * @brief          four omni wheels speed is calculated by three params. 
   * @param[in]      vx_set: vertial speed
   * @param[in]      vy_set: horizontal speed
   * @param[in]      wz_set: rotation speed
-  * @param[out]     wheel_speed: four mecanum wheels speed
+  * @param[out]     wheel_speed: four omni wheels speed
   * @retval         none
   */
 /**
-  * @brief          四个麦轮速度是通过三个参数计算出来的
+  * @brief          四个全向轮速度是通过三个参数计算出来的
   * @param[in]      vx_set: 纵向速度
   * @param[in]      vy_set: 横向速度
   * @param[in]      wz_set: 旋转速度
-  * @param[out]     wheel_speed: 四个麦轮速度
+  * @param[out]     wheel_speed: 四个全向轮速度
   * @retval         none
   */
 static void chassis_vector_to_mecanum_wheel_speed(const fp32 vx_set, const fp32 vy_set, const fp32 wz_set, fp32 wheel_speed[4])
@@ -571,8 +571,8 @@ static void chassis_control_loop(chassis_move_t *chassis_move_control_loop)
     fp32 wheel_speed[4] = {0.0f, 0.0f, 0.0f, 0.0f};
     uint8_t i = 0;
 
-    //mecanum wheel speed calculation
-    //麦轮运动分解
+    //omni wheel speed calculation
+    //全向轮运动分解
     chassis_vector_to_mecanum_wheel_speed(chassis_move_control_loop->vx_set,
                                           chassis_move_control_loop->vy_set, chassis_move_control_loop->wz_set, wheel_speed);
 
@@ -627,3 +627,4 @@ static void chassis_control_loop(chassis_move_t *chassis_move_control_loop)
         chassis_move_control_loop->motor_chassis[i].give_current = (int16_t)(chassis_move_control_loop->motor_speed_pid[i].out);
     }
 }
+
