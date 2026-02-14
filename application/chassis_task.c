@@ -359,9 +359,12 @@ static void chassis_feedback_update(chassis_move_t *chassis_move_update)
 
     //calculate vertical speed, horizontal speed ,rotation speed, left hand rule 
     //更新底盘纵向速度 x， 平移速度y，旋转速度wz，坐标系为右手系
-    chassis_move_update->vx = (-chassis_move_update->motor_chassis[0].speed + chassis_move_update->motor_chassis[1].speed + chassis_move_update->motor_chassis[2].speed - chassis_move_update->motor_chassis[3].speed) * MOTOR_SPEED_TO_CHASSIS_SPEED_VX;
-    chassis_move_update->vy = (-chassis_move_update->motor_chassis[0].speed - chassis_move_update->motor_chassis[1].speed + chassis_move_update->motor_chassis[2].speed + chassis_move_update->motor_chassis[3].speed) * MOTOR_SPEED_TO_CHASSIS_SPEED_VY;
-    chassis_move_update->wz = (-chassis_move_update->motor_chassis[0].speed - chassis_move_update->motor_chassis[1].speed - chassis_move_update->motor_chassis[2].speed - chassis_move_update->motor_chassis[3].speed) * MOTOR_SPEED_TO_CHASSIS_SPEED_WZ / MOTOR_DISTANCE_TO_CENTER;
+    const fp32 k = 0.707106781f; // sqrt(2)/2
+    const fp32 inv_4k = 0.25f / k;
+    const fp32 inv_4r = 0.25f / MOTOR_DISTANCE_TO_CENTER;
+    chassis_move_update->vx = ((chassis_move_update->motor_chassis[2].speed + chassis_move_update->motor_chassis[3].speed) - (chassis_move_update->motor_chassis[0].speed + chassis_move_update->motor_chassis[1].speed)) * inv_4k;
+    chassis_move_update->vy = ((chassis_move_update->motor_chassis[0].speed + chassis_move_update->motor_chassis[3].speed) - (chassis_move_update->motor_chassis[1].speed + chassis_move_update->motor_chassis[2].speed)) * inv_4k;
+    chassis_move_update->wz = (chassis_move_update->motor_chassis[0].speed + chassis_move_update->motor_chassis[1].speed + chassis_move_update->motor_chassis[2].speed + chassis_move_update->motor_chassis[3].speed) * inv_4r;
 
     //calculate chassis euler angle, if chassis add a new gyro sensor,please change this code
     //计算底盘姿态角度, 如果底盘上有陀螺仪请更改这部分代码
@@ -541,10 +544,12 @@ static void chassis_vector_to_mecanum_wheel_speed(const fp32 vx_set, const fp32 
 {
     //because the gimbal is in front of chassis, when chassis rotates, wheel 0 and wheel 1 should be slower and wheel 2 and wheel 3 should be faster
     //旋转的时候， 由于云台靠前，所以是前面两轮 0 ，1 旋转的速度变慢， 后面两轮 2,3 旋转的速度变快
-    wheel_speed[0] = -vx_set - vy_set + (CHASSIS_WZ_SET_SCALE - 1.0f) * MOTOR_DISTANCE_TO_CENTER * wz_set;
-    wheel_speed[1] = vx_set - vy_set + (CHASSIS_WZ_SET_SCALE - 1.0f) * MOTOR_DISTANCE_TO_CENTER * wz_set;
-    wheel_speed[2] = vx_set + vy_set + (-CHASSIS_WZ_SET_SCALE - 1.0f) * MOTOR_DISTANCE_TO_CENTER * wz_set;
-    wheel_speed[3] = -vx_set + vy_set + (-CHASSIS_WZ_SET_SCALE - 1.0f) * MOTOR_DISTANCE_TO_CENTER * wz_set;
+    const fp32 k = 0.707106781f; // sqrt(2)/2
+    const fp32 wz_term = MOTOR_DISTANCE_TO_CENTER * wz_set;
+    wheel_speed[0] = -k * vx_set + k * vy_set + wz_term;
+    wheel_speed[1] = -k * vx_set - k * vy_set + wz_term;
+    wheel_speed[2] = k * vx_set - k * vy_set + wz_term;
+    wheel_speed[3] = k * vx_set + k * vy_set + wz_term;
 }
 
 
