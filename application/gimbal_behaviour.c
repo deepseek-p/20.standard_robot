@@ -623,6 +623,18 @@ static void gimbal_cali_control(fp32 *yaw, fp32 *pitch, gimbal_control_t *gimbal
     }
     static uint16_t cali_time = 0;
 
+#if GIMBAL_YAW_CONTINUOUS_TURN
+    if (gimbal_control_set->gimbal_cali.step == GIMBAL_CALI_YAW_MAX_STEP ||
+        gimbal_control_set->gimbal_cali.step == GIMBAL_CALI_YAW_MIN_STEP)
+    {
+        *pitch = 0;
+        *yaw = 0;
+        gimbal_control_set->gimbal_cali.step = GIMBAL_CALI_END_STEP;
+        cali_time = 0;
+        return;
+    }
+#endif
+
     if (gimbal_control_set->gimbal_cali.step == GIMBAL_CALI_PITCH_MAX_STEP)
     {
 
@@ -700,6 +712,7 @@ static void gimbal_absolute_angle_control(fp32 *yaw, fp32 *pitch, gimbal_control
     *pitch = pitch_channel * PITCH_RC_SEN + gimbal_control_set->gimbal_rc_ctrl->mouse.y * PITCH_MOUSE_SEN;
 
 
+#if !GIMBAL_YAW_CONTINUOUS_TURN
     {
         static uint16_t last_turn_keyboard = 0;
         static uint8_t gimbal_turn_flag = 0;
@@ -714,7 +727,7 @@ static void gimbal_absolute_angle_control(fp32 *yaw, fp32 *pitch, gimbal_control
                 gimbal_end_angle = rad_format(gimbal_control_set->gimbal_yaw_motor.absolute_angle + PI);
             }
         }
-        last_turn_keyboard = gimbal_control_set->gimbal_rc_ctrl->key.v ;
+        last_turn_keyboard = gimbal_control_set->gimbal_rc_ctrl->key.v;
 
         if (gimbal_turn_flag)
         {
@@ -734,6 +747,7 @@ static void gimbal_absolute_angle_control(fp32 *yaw, fp32 *pitch, gimbal_control
             gimbal_turn_flag = 0;
         }
     }
+#endif
 }
 
 
@@ -794,3 +808,4 @@ static void gimbal_motionless_control(fp32 *yaw, fp32 *pitch, gimbal_control_t *
     *yaw = 0.0f;
     *pitch = 0.0f;
 }
+

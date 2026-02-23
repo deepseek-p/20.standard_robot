@@ -87,6 +87,7 @@ typedef enum
 {
   CHASSIS_ZERO_FORCE,                   //chassis will be like no power,底盘无力, 跟没上电那样
   CHASSIS_NO_MOVE,                      //chassis will be stop,底盘保持不动
+  CHASSIS_HUST_SELF_PROTECT,            //HUST small-gyro mode, constant spin + translation
   CHASSIS_INFANTRY_FOLLOW_GIMBAL_YAW,   //chassis will follow gimbal, usually in infantry,正常步兵底盘跟随云台
   CHASSIS_ENGINEER_FOLLOW_CHASSIS_YAW,  //chassis will follow chassis yaw angle, usually in engineer,
                                         //because chassis does have gyro sensor, its yaw angle is calculed by gyro in gimbal and gimbal motor angle,
@@ -100,6 +101,11 @@ typedef enum
 } chassis_behaviour_e;
 
 #define CHASSIS_OPEN_RC_SCALE 10 // in CHASSIS_OPEN mode, multiply the value. 在chassis_open 模型下，遥控器乘以该比例发送到can上
+
+// HUST self-protect mode parameters
+#define CHASSIS_HUST_SELF_PROTECT_WZ 4.5f
+#define CHASSIS_HUST_SELF_PROTECT_VX_SCALE 0.6f
+#define CHASSIS_HUST_SELF_PROTECT_VY_SCALE 0.6f
 
 
 

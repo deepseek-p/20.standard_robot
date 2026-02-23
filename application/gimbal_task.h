@@ -117,6 +117,11 @@
 //云台测试模式 宏定义 0 为不使用测试模式
 #define GIMBAL_TEST_MODE 0
 
+//yaw continuous turn switch and safety limits
+#define GIMBAL_YAW_CONTINUOUS_TURN 1
+#define GIMBAL_YAW_ERR_LIMIT (2.0f * PI)
+#define GIMBAL_YAW_CALI_FAKE_LIMIT 1000.0f
+
 #define PITCH_TURN  1
 #define YAW_TURN    0
 
@@ -200,6 +205,10 @@ typedef struct
     fp32 relative_angle_set; //rad
     fp32 absolute_angle;     //rad
     fp32 absolute_angle_set; //rad
+    fp32 continuous_relative_angle;     //rad, yaw continuous angle feedback
+    fp32 continuous_relative_angle_set; //rad, yaw continuous angle set-point
+    fp32 continuous_absolute_angle;     //rad, yaw continuous angle feedback
+    fp32 continuous_absolute_angle_set; //rad, yaw continuous angle set-point
     fp32 motor_gyro;         //rad/s
     fp32 motor_gyro_set;
     fp32 motor_speed;
