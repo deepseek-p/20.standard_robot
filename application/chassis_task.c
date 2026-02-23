@@ -22,6 +22,7 @@
 #include "cmsis_os.h"
 
 #include "arm_math.h"
+#include <math.h>
 #include "pid.h"
 #include "remote_control.h"
 #include "CAN_receive.h"
@@ -41,6 +42,8 @@
         }                                                \
     }
 
+#define CHASSIS_FOLLOW_ANGLE_BRAKE_START (PI * 0.6f)
+#define CHASSIS_FOLLOW_ANGLE_BRAKE_END   (PI * 0.95f)
 
 /**
   * @brief          "chassis_move" valiable initialization, include pid initialization, remote control data point initialization, 3508 chassis motors
@@ -506,7 +509,21 @@ static void chassis_set_contorl(chassis_move_t *chassis_move_control)
         chassis_move_control->chassis_relative_angle_set = rad_format(angle_set);
         //calculate ratation speed
         //计算旋转PID角速度
-        chassis_move_control->wz_set = -PID_calc(&chassis_move_control->chassis_angle_pid, chassis_move_control->chassis_yaw_motor->relative_angle, chassis_move_control->chassis_relative_angle_set);
+        fp32 rel = chassis_move_control->chassis_yaw_motor->relative_angle;
+        chassis_move_control->wz_set = -PID_calc(&chassis_move_control->chassis_angle_pid, rel, chassis_move_control->chassis_relative_angle_set);
+
+        //large angle brake: avoid wrap-around limit cycle near +-PI
+        //大偏差制动：避免在 +-PI 邻域触发回绕极限环
+        fp32 abs_rel = fabsf(rel);
+        if (abs_rel > CHASSIS_FOLLOW_ANGLE_BRAKE_START)
+        {
+            fp32 brake_factor = (CHASSIS_FOLLOW_ANGLE_BRAKE_END - abs_rel) / (CHASSIS_FOLLOW_ANGLE_BRAKE_END - CHASSIS_FOLLOW_ANGLE_BRAKE_START);
+            if (brake_factor < 0.0f)
+            {
+                brake_factor = 0.0f;
+            }
+            chassis_move_control->wz_set *= brake_factor;
+        }
         //speed limit
         //速度限幅
         chassis_move_control->vx_set = fp32_constrain(chassis_move_control->vx_set, chassis_move_control->vx_min_speed, chassis_move_control->vx_max_speed);
@@ -574,7 +591,6 @@ static void chassis_vector_to_mecanum_wheel_speed(const fp32 vx_set, const fp32 
     wheel_speed[2] = k * vx_set - k * vy_set + wz_term;
     wheel_speed[3] = k * vx_set + k * vy_set + wz_term;
 }
-
 
 /**
   * @brief          control loop, according to control set-point, calculate motor current, 
@@ -650,4 +666,6 @@ static void chassis_control_loop(chassis_move_t *chassis_move_control_loop)
         chassis_move_control_loop->motor_chassis[i].give_current = (int16_t)(chassis_move_control_loop->motor_speed_pid[i].out);
     }
 }
+
+
 

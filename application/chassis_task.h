@@ -126,11 +126,11 @@
 
 //chassis follow angle PID
 //µ×ÅÌÐý×ª¸úËæPID
-#define CHASSIS_FOLLOW_GIMBAL_PID_KP 40.0f
-#define CHASSIS_FOLLOW_GIMBAL_PID_KI 0.0f
+#define CHASSIS_FOLLOW_GIMBAL_PID_KP 8.0f
+#define CHASSIS_FOLLOW_GIMBAL_PID_KI 0.5f
 #define CHASSIS_FOLLOW_GIMBAL_PID_KD 0.0f
-#define CHASSIS_FOLLOW_GIMBAL_PID_MAX_OUT 6.0f
-#define CHASSIS_FOLLOW_GIMBAL_PID_MAX_IOUT 0.2f
+#define CHASSIS_FOLLOW_GIMBAL_PID_MAX_OUT 3.0f
+#define CHASSIS_FOLLOW_GIMBAL_PID_MAX_IOUT 1.0f
 
 typedef enum
 {
@@ -231,4 +231,5 @@ extern void chassis_rc_to_control_vector(fp32 *vx_set, fp32 *vy_set, chassis_mov
 extern bool_t get_chassis_debug_snapshot(chassis_debug_snapshot_t *snapshot);
 
 #endif
+
 
