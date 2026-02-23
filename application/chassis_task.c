@@ -335,7 +335,7 @@ static void chassis_mode_change_control_transit(chassis_move_t *chassis_move_tra
     //切入跟随云台模式
     if ((chassis_move_transit->last_chassis_mode != CHASSIS_VECTOR_FOLLOW_GIMBAL_YAW) && chassis_move_transit->chassis_mode == CHASSIS_VECTOR_FOLLOW_GIMBAL_YAW)
     {
-        chassis_move_transit->chassis_relative_angle_set = 0.0f;
+        chassis_move_transit->chassis_relative_angle_set = chassis_move_transit->chassis_yaw_motor->relative_angle;
     }
     //change to follow chassis yaw angle
     //切入跟随底盘角度模式
@@ -650,5 +650,4 @@ static void chassis_control_loop(chassis_move_t *chassis_move_control_loop)
         chassis_move_control_loop->motor_chassis[i].give_current = (int16_t)(chassis_move_control_loop->motor_speed_pid[i].out);
     }
 }
-
 
