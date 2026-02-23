@@ -185,6 +185,19 @@ typedef struct
 
 } chassis_move_t;
 
+typedef struct
+{
+  uint8_t mode;
+  fp32 vx_set;
+  fp32 vy_set;
+  fp32 wz_set;
+  fp32 chassis_relative_angle;
+  fp32 chassis_relative_angle_set;
+  fp32 chassis_yaw;
+  fp32 chassis_yaw_set;
+  int16_t wheel_current_set[4];
+} chassis_debug_snapshot_t;
+
 /**
   * @brief          chassis task, osDelay CHASSIS_CONTROL_TIME_MS (2ms) 
   * @param[in]      pvParameters: null
@@ -215,4 +228,7 @@ extern void chassis_task(void const *pvParameters);
   */
 extern void chassis_rc_to_control_vector(fp32 *vx_set, fp32 *vy_set, chassis_move_t *chassis_move_rc_to_vector);
 
+extern bool_t get_chassis_debug_snapshot(chassis_debug_snapshot_t *snapshot);
+
 #endif
+

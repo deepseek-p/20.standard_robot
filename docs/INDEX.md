@@ -26,6 +26,7 @@
 - [ai_sessions/2026-02-22_rollback_to_usb_debug_telemetry_framework.md](ai_sessions/2026-02-22_rollback_to_usb_debug_telemetry_framework.md)：按指令回退到 USB 刚修好基线的会话记录
 - [ai_sessions/2026-02-22_chassis_gps_follow_yaw_direction_fix.md](ai_sessions/2026-02-22_chassis_gps_follow_yaw_direction_fix.md)：GPS 跟随模式底盘自激旋转（改动前后记录）
 - [ai_sessions/2026-02-22_gimbal_yaw_continuous_turn_reapply.md](ai_sessions/2026-02-22_gimbal_yaw_continuous_turn_reapply.md)：Yaw 连续旋转与 yaw 校准跳步改造重新落地记录
+- [ai_sessions/2026-02-23_usb_debug_telemetry_restore_after_rollback.md](ai_sessions/2026-02-23_usb_debug_telemetry_restore_after_rollback.md)：USB 调试遥测在回溯后的恢复记录
 - [adr/ADR_TEMPLATE.md](adr/ADR_TEMPLATE.md)：架构决策记录模板
 
 ## 根目录兼容入口

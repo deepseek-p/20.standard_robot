@@ -625,6 +625,36 @@ const gimbal_motor_t *get_pitch_motor_point(void)
     return &gimbal_control.gimbal_pitch_motor;
 }
 
+bool_t get_gimbal_debug_snapshot(gimbal_debug_snapshot_t *snapshot)
+{
+    if (snapshot == NULL)
+    {
+        return 0;
+    }
+
+    snapshot->yaw_mode = (uint8_t)gimbal_control.gimbal_yaw_motor.gimbal_motor_mode;
+    snapshot->pitch_mode = (uint8_t)gimbal_control.gimbal_pitch_motor.gimbal_motor_mode;
+    snapshot->cali_step = gimbal_control.gimbal_cali.step;
+
+    snapshot->yaw_absolute = gimbal_control.gimbal_yaw_motor.absolute_angle;
+    snapshot->yaw_absolute_set = gimbal_control.gimbal_yaw_motor.absolute_angle_set;
+    snapshot->yaw_relative = gimbal_control.gimbal_yaw_motor.relative_angle;
+    snapshot->yaw_relative_set = gimbal_control.gimbal_yaw_motor.relative_angle_set;
+    snapshot->yaw_gyro = gimbal_control.gimbal_yaw_motor.motor_gyro;
+    snapshot->yaw_gyro_set = gimbal_control.gimbal_yaw_motor.motor_gyro_set;
+    snapshot->yaw_given_current = gimbal_control.gimbal_yaw_motor.given_current;
+
+    snapshot->pitch_absolute = gimbal_control.gimbal_pitch_motor.absolute_angle;
+    snapshot->pitch_absolute_set = gimbal_control.gimbal_pitch_motor.absolute_angle_set;
+    snapshot->pitch_relative = gimbal_control.gimbal_pitch_motor.relative_angle;
+    snapshot->pitch_relative_set = gimbal_control.gimbal_pitch_motor.relative_angle_set;
+    snapshot->pitch_gyro = gimbal_control.gimbal_pitch_motor.motor_gyro;
+    snapshot->pitch_gyro_set = gimbal_control.gimbal_pitch_motor.motor_gyro_set;
+    snapshot->pitch_given_current = gimbal_control.gimbal_pitch_motor.given_current;
+
+    return 1;
+}
+
 /**
   * @brief          "gimbal_control" valiable initialization, include pid initialization, remote control data point initialization, gimbal motors
   *                 data point initialization, and gyro sensor angle point initialization.
@@ -1143,3 +1173,4 @@ static void gimbal_PID_clear(gimbal_PID_t *gimbal_pid_clear)
     gimbal_pid_clear->err = gimbal_pid_clear->set = gimbal_pid_clear->get = 0.0f;
     gimbal_pid_clear->out = gimbal_pid_clear->Pout = gimbal_pid_clear->Iout = gimbal_pid_clear->Dout = 0.0f;
 }
+

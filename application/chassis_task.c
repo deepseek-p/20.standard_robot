@@ -122,6 +122,28 @@ uint32_t chassis_high_water;
 
 //底盘运动数据
 chassis_move_t chassis_move;
+bool_t get_chassis_debug_snapshot(chassis_debug_snapshot_t *snapshot)
+{
+    if (snapshot == NULL)
+    {
+        return 0;
+    }
+
+    snapshot->mode = (uint8_t)chassis_move.chassis_mode;
+    snapshot->vx_set = chassis_move.vx_set;
+    snapshot->vy_set = chassis_move.vy_set;
+    snapshot->wz_set = chassis_move.wz_set;
+    snapshot->chassis_relative_angle = chassis_move.chassis_relative_angle;
+    snapshot->chassis_relative_angle_set = chassis_move.chassis_relative_angle_set;
+    snapshot->chassis_yaw = chassis_move.chassis_yaw;
+    snapshot->chassis_yaw_set = chassis_move.chassis_yaw_set;
+    snapshot->wheel_current_set[0] = chassis_move.motor_chassis[0].give_current;
+    snapshot->wheel_current_set[1] = chassis_move.motor_chassis[1].give_current;
+    snapshot->wheel_current_set[2] = chassis_move.motor_chassis[2].give_current;
+    snapshot->wheel_current_set[3] = chassis_move.motor_chassis[3].give_current;
+
+    return 1;
+}
 
 /**
   * @brief          chassis task, osDelay CHASSIS_CONTROL_TIME_MS (2ms) 
@@ -369,6 +391,7 @@ static void chassis_feedback_update(chassis_move_t *chassis_move_update)
     //calculate chassis euler angle, if chassis add a new gyro sensor,please change this code
     //计算底盘姿态角度, 如果底盘上有陀螺仪请更改这部分代码
     chassis_move_update->chassis_yaw = rad_format(*(chassis_move_update->chassis_INS_angle + INS_YAW_ADDRESS_OFFSET) - chassis_move_update->chassis_yaw_motor->relative_angle);
+    chassis_move_update->chassis_relative_angle = rad_format(chassis_move_update->chassis_yaw_motor->relative_angle);
     chassis_move_update->chassis_pitch = rad_format(*(chassis_move_update->chassis_INS_angle + INS_PITCH_ADDRESS_OFFSET) - chassis_move_update->chassis_pitch_motor->relative_angle);
     chassis_move_update->chassis_roll = *(chassis_move_update->chassis_INS_angle + INS_ROLL_ADDRESS_OFFSET);
 }
@@ -627,4 +650,5 @@ static void chassis_control_loop(chassis_move_t *chassis_move_control_loop)
         chassis_move_control_loop->motor_chassis[i].give_current = (int16_t)(chassis_move_control_loop->motor_speed_pid[i].out);
     }
 }
+
 

@@ -232,6 +232,27 @@ typedef struct
     gimbal_step_cali_t gimbal_cali;
 } gimbal_control_t;
 
+typedef struct
+{
+    uint8_t yaw_mode;
+    uint8_t pitch_mode;
+    uint8_t cali_step;
+    fp32 yaw_absolute;
+    fp32 yaw_absolute_set;
+    fp32 yaw_relative;
+    fp32 yaw_relative_set;
+    fp32 yaw_gyro;
+    fp32 yaw_gyro_set;
+    int16_t yaw_given_current;
+    fp32 pitch_absolute;
+    fp32 pitch_absolute_set;
+    fp32 pitch_relative;
+    fp32 pitch_relative_set;
+    fp32 pitch_gyro;
+    fp32 pitch_gyro_set;
+    int16_t pitch_given_current;
+} gimbal_debug_snapshot_t;
+
 /**
   * @brief          return yaw motor data point
   * @param[in]      none
@@ -255,6 +276,8 @@ extern const gimbal_motor_t *get_yaw_motor_point(void);
   * @retval         pitch
   */
 extern const gimbal_motor_t *get_pitch_motor_point(void);
+
+extern bool_t get_gimbal_debug_snapshot(gimbal_debug_snapshot_t *snapshot);
 
 /**
   * @brief          gimbal task, osDelay GIMBAL_CONTROL_TIME (1ms) 
@@ -315,3 +338,4 @@ extern bool_t cmd_cali_gimbal_hook(uint16_t *yaw_offset, uint16_t *pitch_offset,
   */
 extern void set_cali_gimbal_hook(const uint16_t yaw_offset, const uint16_t pitch_offset, const fp32 max_yaw, const fp32 min_yaw, const fp32 max_pitch, const fp32 min_pitch);
 #endif
+
