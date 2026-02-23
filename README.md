@@ -21,3 +21,8 @@
 Notes:
 - UART1 is configured in `Src/usart.c` by CubeMX (MX_USART1_UART_Init) at 115200 8N1.
 - `ERR value_out_of_range` means the value was clamped; run `get` to confirm the applied value.
+
+## AI 交接文档入口
+
+- 总索引：[`docs/INDEX.md`](docs/INDEX.md)
+- 当前状态：[`docs/ai_sessions/CURRENT_STATE.md`](docs/ai_sessions/CURRENT_STATE.md)

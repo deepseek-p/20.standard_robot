@@ -222,3 +222,91 @@ git checkout -b feature/xxx
 ```
 
 如果你希望我根据你的实际项目（比如 STM32/Keil 工程）补充忽略规则或推荐工作流，可以直接告诉我。
+
+## 12. 本仓库本次实际操作记录（2026-02-19）
+
+> 目标：把这次在 `20.standard_robot` 仓库里做过的 Git 处理留档，便于后续排查与复现。
+
+### 12.1 仓库健康检查（结论：仓库本身正常）
+
+执行过的检查命令：
+```bash
+git rev-parse --is-inside-work-tree
+git status --porcelain=v2 -b
+git branch -vv
+git remote -v
+git fsck --full
+git count-objects -vH
+```
+
+关键结论：
+- 仓库结构正常，`HEAD` 在 `main`，非 detached。
+- `git fsck --full` 仅有 `dangling tree`，属于常见可回收对象，不是仓库损坏。
+- 问题本质是工作区被 Keil 构建产物“刷屏”。
+
+### 12.2 为什么 `.gitignore` 看起来没生效
+
+验证命令：
+```bash
+git check-ignore -v --no-index MDK-ARM/standard_tpye_c/adc.o
+git ls-files -ci --exclude-standard
+```
+
+结论：
+- `.gitignore` 规则能匹配到（例如 `*.o`）。
+- 但这些文件已经被 Git 跟踪，`.gitignore` 不会自动对“已跟踪文件”生效。
+
+### 12.3 实际修复步骤（已执行）
+
+1) 将“已被忽略规则命中但仍在跟踪”的文件从索引移除（不删本地文件）：
+```bash
+$files = git ls-files -ci --exclude-standard
+git rm --cached -- $files
+```
+
+2) 更新 `.gitignore` 规则（避免误伤 + 覆盖 Keil 输出）：
+- 取消全局 `*.lib` 忽略，改为仅忽略 `MDK-ARM/**/*.lib`
+- 显式保留：`!components/algorithm/*.lib`
+- 增加：`MDK-ARM/**/*.htm`、`MDK-ARM/**/*.html`
+
+3) 移除剩余被新规则命中的 HTML 构建报告：
+```bash
+git rm --cached -- MDK-ARM/standard_tpye_c/standard_tpye_c.build_log.htm MDK-ARM/standard_tpye_c/standard_tpye_c.htm
+```
+
+4) 重新加入需要保留跟踪的算法库：
+```bash
+git add -- components/algorithm/AHRS.lib components/algorithm/arm_cortexM4lf_math.lib
+```
+
+### 12.4 形成的提交
+
+提交：
+```bash
+8e9377d build: stop tracking Keil generated artifacts and update gitignore
+```
+
+统计：
+```text
+341 files changed, 80 insertions(+), 39887 deletions(-)
+```
+
+说明：这些大量 `D` 主要是“从 Git 跟踪中移除构建产物”，不是删除你本地磁盘文件。
+
+### 12.5 本地噪音抑制（仅当前机器）
+
+为避免 `MDK-ARM/standard_robot.uvprojx` 频繁出现在状态里，已设置：
+```bash
+git update-index --skip-worktree -- MDK-ARM/standard_robot.uvprojx
+```
+
+校验：
+```bash
+git ls-files -v -- MDK-ARM/standard_robot.uvprojx
+# 显示 S 表示已生效
+```
+
+若后续需要提交该文件改动，先取消：
+```bash
+git update-index --no-skip-worktree -- MDK-ARM/standard_robot.uvprojx
+```

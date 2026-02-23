@@ -29,3 +29,14 @@
 - 提交历史以简洁说明为主（如 "Initial commit"），暂无强制格式。
 - 建议使用简短的祈使语并加子系统前缀（例如 `bsp: fix CAN filter`）。
 - PR 应包含变更说明、目标板卡/MCU、编译与烧录步骤，并注明是否修改了 CubeMX 或 Keil 工程文件。
+
+## AI 执行强制规则（docs 体系）
+- 从本条开始，`docs/` 文档体系为 AI 协作的强制规范，AI 必须执行，不得跳过。
+- AI 在开始任何实现前，必须先读取并遵循：
+  - `docs/INDEX.md`
+  - `docs/00_AI_HANDOFF_RULES.md`
+  - 与任务直接相关的专题文档（如 `docs/02_ARCHITECTURE.md`、`docs/03_TASK_MAP.md`、`docs/04_MODULE_MAP.md`）
+- 涉及任务调度、架构、模块职责、风险与交接的改动，必须同步更新对应 docs 文档；未更新视为任务未完成。
+- 命中 `docs/00_AI_HANDOFF_RULES.md` 中“必须写 ai_sessions”的场景时，AI 必须新增会话记录到 `docs/ai_sessions/`，并包含模板要求的全部字段。
+- 每次会话记录必须包含独立章节 `## ⚠ 未验证假设`；缺失该节视为不合规。
+- 若本文件与 `docs/` 同类流程规则存在冲突，以 `docs/00_AI_HANDOFF_RULES.md` 与 `docs/INDEX.md` 的约束为准。
