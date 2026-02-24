@@ -427,6 +427,15 @@ static void chassis_hust_self_protect_control(fp32 *vx_set, fp32 *vy_set, fp32 *
     }
 
     chassis_rc_to_control_vector(vx_set, vy_set, chassis_move_rc_to_vector);
+
+    // rotate from gimbal (world) frame to chassis frame using relative_angle
+    fp32 sin_yaw = arm_sin_f32(chassis_move_rc_to_vector->chassis_yaw_motor->relative_angle);
+    fp32 cos_yaw = arm_cos_f32(-chassis_move_rc_to_vector->chassis_yaw_motor->relative_angle);
+    fp32 vx_raw = *vx_set;
+    fp32 vy_raw = *vy_set;
+    *vx_set = cos_yaw * vx_raw + sin_yaw * vy_raw;
+    *vy_set = -sin_yaw * vx_raw + cos_yaw * vy_raw;
+
     *vx_set *= CHASSIS_HUST_SELF_PROTECT_VX_SCALE;
     *vy_set *= CHASSIS_HUST_SELF_PROTECT_VY_SCALE;
 
