@@ -27,6 +27,19 @@
 - [ai_sessions/2026-02-22_chassis_gps_follow_yaw_direction_fix.md](ai_sessions/2026-02-22_chassis_gps_follow_yaw_direction_fix.md)：GPS 跟随模式底盘自激旋转（改动前后记录）
 - [ai_sessions/2026-02-22_gimbal_yaw_continuous_turn_reapply.md](ai_sessions/2026-02-22_gimbal_yaw_continuous_turn_reapply.md)：Yaw 连续旋转与 yaw 校准跳步改造重新落地记录
 - [ai_sessions/2026-02-23_usb_debug_telemetry_restore_after_rollback.md](ai_sessions/2026-02-23_usb_debug_telemetry_restore_after_rollback.md)：USB 调试遥测在回溯后的恢复记录
+- [ai_sessions/2026-02-23_chassis_hust_mode_mapping_swap.md](ai_sessions/2026-02-23_chassis_hust_mode_mapping_swap.md)：ATTI/GPS 挡位映射为 HUST_Act/HUST_SelfProtect 的改动记录
+- [ai_sessions/2026-02-23_gimbal_yaw_continuous_turn_v4_callsite_split.md](ai_sessions/2026-02-23_gimbal_yaw_continuous_turn_v4_callsite_split.md)：Yaw 连续角 v4（调用点拆分 + 模式切换同步 + snapshot 对齐）改动记录
+- [ai_sessions/2026-02-23_chassis_atti_follow_spin_baseline_fix.md](ai_sessions/2026-02-23_chassis_atti_follow_spin_baseline_fix.md)：ATTI 跟随模式无输入自旋（wz_set 饱和）修复记录
+- [ai_sessions/2026-02-23_chassis_atti_spin_mode_mismatch_analysis.md](ai_sessions/2026-02-23_chassis_atti_spin_mode_mismatch_analysis.md)：ATTI 自旋问题二次定位（FOLLOW 与 yaw ENCONDE 模式错配）记录
+- [ai_sessions/2026-02-23_chassis_mid_no_follow_decouple_fix.md](ai_sessions/2026-02-23_chassis_mid_no_follow_decouple_fix.md)：执行版修复：MID 改 NO_FOLLOW 解除底盘-云台耦合死锁
+- [ai_sessions/2026-02-23_chassis_mid_follow_restore_step1.md](ai_sessions/2026-02-23_chassis_mid_follow_restore_step1.md)：按需求执行 step1：MID 回切 FOLLOW_GIMBAL_YAW
+- [ai_sessions/2026-02-23_mid_follow_gimbal_absolute_alignment_fix.md](ai_sessions/2026-02-23_mid_follow_gimbal_absolute_alignment_fix.md)：按根因修复 MID 跟随自旋：云台 MID 改绝对角，解除 FOLLOW+ENCONDE 死锁
+- [ai_sessions/2026-02-23_chassis_follow_pid_damping_tune.md](ai_sessions/2026-02-23_chassis_follow_pid_damping_tune.md)：MID 跟随阻尼首调：Kp 40->15、Kd 0->5，抑制摆振
+- [ai_sessions/2026-02-23_chassis_follow_pid_step1_soft_gain.md](ai_sessions/2026-02-23_chassis_follow_pid_step1_soft_gain.md)：MID 跟随振荡 step1：Kp/Kd/max_out 降级到温和参数组
+- [ai_sessions/2026-02-23_chassis_follow_wraparound_brake_fix.md](ai_sessions/2026-02-23_chassis_follow_wraparound_brake_fix.md)：MID 跟随 ±PI 回绕极限环修复：大偏差刹车因子 + 参数重标定
+- [ai_sessions/2026-02-24_docs_acceptance_backfill.md](ai_sessions/2026-02-24_docs_acceptance_backfill.md)：前几次底盘/云台联调的 docs 验收补录与状态收口
+- [ai_sessions/2026-02-24_chassis_selfprotect_frame_rotation_compensation.md](ai_sessions/2026-02-24_chassis_selfprotect_frame_rotation_compensation.md)：UP 小陀螺平移坐标补偿，修复“推前进画圆”
+- [ai_sessions/2026-02-24_chassis_selfprotect_sin_sign_fix.md](ai_sessions/2026-02-24_chassis_selfprotect_sin_sign_fix.md)：UP 平移补偿第二轮：修正 `sin(relative_angle)` 方向符号
 - [adr/ADR_TEMPLATE.md](adr/ADR_TEMPLATE.md)：架构决策记录模板
 
 ## 根目录兼容入口
