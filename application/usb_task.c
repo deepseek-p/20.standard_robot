@@ -36,14 +36,126 @@
 #define USB_DEBUG_INVALID_INT   2147483647L
 
 /*
- * FireWater fixed field order (index -> value):
- * 0:tick_ms 1:seq 2:drop 3:bat 4:dbus 5:yaw_toe 6:pitch_toe 7:gyro_toe 8:acc_toe 9:mag_toe 10:ref_toe
- * 11:ch_mode 12:vx_set 13:vy_set 14:wz_set 15:rel 16:rel_set 17:ch_yaw 18:ch_yaw_set 19:i1 20:i2 21:i3 22:i4
- * 23:yaw_mode 24:pitch_mode 25:cali_step 26:yaw_abs 27:yaw_abs_set 28:yaw_rel 29:yaw_rel_set 30:yaw_gyro 31:yaw_gyro_set 32:yaw_cur
- * 33:pitch_abs 34:pitch_abs_set 35:pitch_rel 36:pitch_rel_set 37:pitch_gyro 38:pitch_gyro_set 39:pitch_cur
- * 40:rc_ch0 41:rc_ch1 42:rc_ch2 43:rc_ch3 44:rc_s0 45:rc_s1 46:mouse_x 47:mouse_y 48:key_v
- * 49:event_bits 50:gimbal_ok 51:chassis_ok
- * Angle/speed fields use milli-scale (rad*1000, rad/s*1000).
+ * FireWater fixed field order for VOFA+ (index:name -> meaning):
+ *  0:tick_ms       -> os tick timestamp (ms)
+ *  1:seq           -> telemetry frame sequence
+ *  2:drop          -> dropped frame counter
+ *  3:bat_pct       -> battery percentage
+ *  4:dbus_toe      -> DBUS offline/error flag
+ *  5:yaw_toe       -> yaw motor offline/error flag
+ *  6:pitch_toe     -> pitch motor offline/error flag
+ *  7:gyro_toe      -> board gyro offline/error flag
+ *  8:accel_toe     -> board accel offline/error flag
+ *  9:mag_toe       -> board mag offline/error flag
+ * 10:ref_toe       -> referee offline/error flag
+ *
+ * 11:ch_mode       -> chassis mode enum snapshot
+ * 12:vx_set        -> chassis vx setpoint (milli-scale)
+ * 13:vy_set        -> chassis vy setpoint (milli-scale)
+ * 14:wz_set        -> chassis wz setpoint (milli-scale)
+ * 15:rel           -> chassis relative angle (milli-scale)
+ * 16:rel_set       -> chassis relative angle setpoint (milli-scale)
+ * 17:ch_yaw        -> chassis yaw (milli-scale)
+ * 18:ch_yaw_set    -> chassis yaw setpoint (milli-scale)
+ * 19:i1            -> wheel current set[0]
+ * 20:i2            -> wheel current set[1]
+ * 21:i3            -> wheel current set[2]
+ * 22:i4            -> wheel current set[3]
+ *
+ * 23:yaw_mode      -> gimbal yaw mode enum
+ * 24:pitch_mode    -> gimbal pitch mode enum
+ * 25:cali_step     -> gimbal calibration step
+ * 26:yaw_abs       -> gimbal yaw absolute angle (milli-scale)
+ * 27:yaw_abs_set   -> gimbal yaw absolute setpoint (milli-scale)
+ * 28:yaw_rel       -> gimbal yaw relative angle (milli-scale)
+ * 29:yaw_rel_set   -> gimbal yaw relative setpoint (milli-scale)
+ * 30:yaw_gyro      -> gimbal yaw gyro feedback (milli-scale)
+ * 31:yaw_gyro_set  -> gimbal yaw gyro setpoint (milli-scale)
+ * 32:yaw_cur       -> gimbal yaw given current
+ * 33:pitch_abs     -> gimbal pitch absolute angle (milli-scale)
+ * 34:pitch_abs_set -> gimbal pitch absolute setpoint (milli-scale)
+ * 35:pitch_rel     -> gimbal pitch relative angle (milli-scale)
+ * 36:pitch_rel_set -> gimbal pitch relative setpoint (milli-scale)
+ * 37:pitch_gyro    -> gimbal pitch gyro feedback (milli-scale)
+ * 38:pitch_gyro_set-> gimbal pitch gyro setpoint (milli-scale)
+ * 39:pitch_cur     -> gimbal pitch given current
+ *
+ * 40:rc_ch0        -> RC channel 0
+ * 41:rc_ch1        -> RC channel 1
+ * 42:rc_ch2        -> RC channel 2
+ * 43:rc_ch3        -> RC channel 3
+ * 44:rc_s0         -> RC switch s0
+ * 45:rc_s1         -> RC switch s1
+ * 46:mouse_x       -> mouse x
+ * 47:mouse_y       -> mouse y
+ * 48:key_v         -> keyboard bitmask
+ *
+ * 49:event_bits    -> event bitmap
+ *                     bit0:dbus_toe change, bit1:yaw_toe change, bit2:pitch_toe change
+ *                     bit3:ch_mode change, bit4:yaw_mode change, bit5:pitch_mode change
+ *                     bit6:chassis snapshot invalid, bit7:gimbal snapshot invalid
+ * 50:gimbal_ok     -> gimbal snapshot valid flag
+ * 51:chassis_ok    -> chassis snapshot valid flag
+ *
+ * Masked-off channels output USB_DEBUG_INVALID_INT.
+ *
+ * 中文释义（按列号）:
+ *  0 tick_ms: 系统tick时间戳（毫秒）
+ *  1 seq: 遥测帧序号
+ *  2 drop: USB发送丢帧计数
+ *  3 bat_pct: 电池电量百分比
+ *  4 dbus_toe: 遥控DBUS离线/错误标志
+ *  5 yaw_toe: 云台yaw电机离线/错误标志
+ *  6 pitch_toe: 云台pitch电机离线/错误标志
+ *  7 gyro_toe: 板载陀螺仪离线/错误标志
+ *  8 accel_toe: 板载加速度计离线/错误标志
+ *  9 mag_toe: 板载磁力计离线/错误标志
+ * 10 ref_toe: 裁判系统离线/错误标志
+ *
+ * 11 ch_mode: 底盘模式枚举快照
+ * 12 vx_set: 底盘x向速度设定（milli缩放）
+ * 13 vy_set: 底盘y向速度设定（milli缩放）
+ * 14 wz_set: 底盘旋转速度设定（milli缩放）
+ * 15 rel: 底盘-云台相对角（milli缩放）
+ * 16 rel_set: 底盘-云台相对角目标（milli缩放）
+ * 17 ch_yaw: 底盘yaw角（milli缩放）
+ * 18 ch_yaw_set: 底盘yaw目标（milli缩放）
+ * 19 i1: 底盘轮1电流设定
+ * 20 i2: 底盘轮2电流设定
+ * 21 i3: 底盘轮3电流设定
+ * 22 i4: 底盘轮4电流设定
+ *
+ * 23 yaw_mode: 云台yaw控制模式枚举
+ * 24 pitch_mode: 云台pitch控制模式枚举
+ * 25 cali_step: 云台校准步骤
+ * 26 yaw_abs: 云台yaw绝对角（milli缩放）
+ * 27 yaw_abs_set: 云台yaw绝对角目标（milli缩放）
+ * 28 yaw_rel: 云台yaw相对角（milli缩放）
+ * 29 yaw_rel_set: 云台yaw相对角目标（milli缩放）
+ * 30 yaw_gyro: 云台yaw角速度反馈（milli缩放）
+ * 31 yaw_gyro_set: 云台yaw角速度目标（milli缩放）
+ * 32 yaw_cur: 云台yaw给定电流
+ * 33 pitch_abs: 云台pitch绝对角（milli缩放）
+ * 34 pitch_abs_set: 云台pitch绝对角目标（milli缩放）
+ * 35 pitch_rel: 云台pitch相对角（milli缩放）
+ * 36 pitch_rel_set: 云台pitch相对角目标（milli缩放）
+ * 37 pitch_gyro: 云台pitch角速度反馈（milli缩放）
+ * 38 pitch_gyro_set: 云台pitch角速度目标（milli缩放）
+ * 39 pitch_cur: 云台pitch给定电流
+ *
+ * 40 rc_ch0: 遥控通道0
+ * 41 rc_ch1: 遥控通道1
+ * 42 rc_ch2: 遥控通道2
+ * 43 rc_ch3: 遥控通道3
+ * 44 rc_s0: 遥控拨杆s0
+ * 45 rc_s1: 遥控拨杆s1
+ * 46 mouse_x: 鼠标x
+ * 47 mouse_y: 鼠标y
+ * 48 key_v: 键盘按键位图
+ *
+ * 49 event_bits: 事件位图
+ * 50 gimbal_ok: 云台快照有效标志（1有效/0无效）
+ * 51 chassis_ok: 底盘快照有效标志（1有效/0无效）
  */
 
 static uint8_t usb_buf[USB_DEBUG_FRAME_MAX_LEN];
