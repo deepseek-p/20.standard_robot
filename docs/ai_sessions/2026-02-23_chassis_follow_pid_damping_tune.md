@@ -1,4 +1,4 @@
-# 2026-02-23 chassis follow PID damping tune
+﻿# 2026-02-23 chassis follow PID damping tune
 
 ## 1. 目标
 
@@ -78,5 +78,6 @@
 
 ## 9. 附件/证据
 
-- 关联数据文件：`data.md`（改前振荡现象数据）。
+- 关联数据文件：`data`（改前振荡现象数据）。
 - 相关风险条目：`docs/risk_log.md` 中“ATTI FOLLOW + yaw 模式耦合与参数收敛”条目。
+

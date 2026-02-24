@@ -1,4 +1,4 @@
-# 2026-02-24 chassis selfprotect frame rotation compensation
+﻿# 2026-02-24 chassis selfprotect frame rotation compensation
 
 ## 1. 目标
 
@@ -79,5 +79,6 @@
 ## 9. 附件/证据
 
 - 需求与现象来源：本轮用户描述“UP 推前进画圆”。
-- 数据路径：`data.md`（后续补充改后数据）。
+- 数据路径：`data`（后续补充改后数据）。
 - 相关风险条目：`docs/risk_log.md` 2026-02-24 新增条目。
+

@@ -1,4 +1,4 @@
-# 2026-02-24 docs acceptance backfill
+﻿# 2026-02-24 docs acceptance backfill
 
 ## 1. 目标
 
@@ -41,17 +41,17 @@
 
 ## ⚠ 未验证假设
 
-- 假设：当前 `data.md` 与用户反馈对应的是同一套最新固件参数（`Ki=0.5`、`max_out=3.0`、`brake 0.6/0.95*PI`）。
+- 假设：当前 `data` 与用户反馈对应的是同一套最新固件参数（`Ki=0.5`、`max_out=3.0`、`brake 0.6/0.95*PI`）。
 - 未验证原因：本次补录不包含新的编译产物标识或固件版本号对齐记录。
 - 潜在影响：若日志与代码版本不一致，验收结论会偏乐观或偏悲观。
 - 后续验证计划：下一轮回传数据时附带“烧录时间 + 参数截图/宏值”作为版本锚点；负责人 `@Codex`。
 
 ## 7. 验证方式与结果
 
-- 串口：已使用 `data.md` 中 MID/UP 数据段进行状态归纳。
+- 串口：已使用 `data` 中 MID/UP 数据段进行状态归纳。
 - USB：已使用 VOFA+ 列（`ch_mode/wz_set/rel/rel_set` 等）对应历史会话结论。
 - 示波器：未执行。
-- 上位机：已有 VOFA+ 观测结论（来自前几轮会话与 `data.md`）。
+- 上位机：已有 VOFA+ 观测结论（来自前几轮会话与 `data`）。
 - 长跑：未执行，本次仍标记待验收。
 
 ## 8. 回滚方式（如何恢复）
@@ -62,10 +62,11 @@
 
 ## 9. 附件/证据
 
-- 数据来源：`data.md`（多轮 VOFA+ 串口帧）。
+- 数据来源：`data`（多轮 VOFA+ 串口帧）。
 - 关联会话：
 - `docs/ai_sessions/2026-02-23_chassis_mid_follow_restore_step1.md`
 - `docs/ai_sessions/2026-02-23_mid_follow_gimbal_absolute_alignment_fix.md`
 - `docs/ai_sessions/2026-02-23_chassis_follow_pid_step1_soft_gain.md`
 - `docs/ai_sessions/2026-02-23_chassis_follow_wraparound_brake_fix.md`
 - 风险关联：`docs/risk_log.md` 2026-02-23 顶部条目。
+

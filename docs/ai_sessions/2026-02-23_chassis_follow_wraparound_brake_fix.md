@@ -1,4 +1,4 @@
-# 2026-02-23 chassis follow wraparound brake fix
+﻿# 2026-02-23 chassis follow wraparound brake fix
 
 ## 1. 目标
 
@@ -85,5 +85,6 @@
 
 ## 9. 附件/证据
 
-- 数据来源：`data.md`（本轮根因定位所依据的 VOFA+ 帧）。
+- 数据来源：`data`（本轮根因定位所依据的 VOFA+ 帧）。
 - 风险关联：`docs/risk_log.md` 中 2026-02-23 底盘跟随风险条目。
+

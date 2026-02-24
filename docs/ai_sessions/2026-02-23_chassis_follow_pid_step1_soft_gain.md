@@ -1,4 +1,4 @@
-# 2026-02-23 chassis follow PID step1 soft gain
+﻿# 2026-02-23 chassis follow PID step1 soft gain
 
 ## 1. 目标
 
@@ -73,5 +73,6 @@
 
 ## 9. 附件/证据
 
-- 关联数据：`data.md`（改前振荡数据基线）。
+- 关联数据：`data`（改前振荡数据基线）。
 - 相关风险条目：`docs/risk_log.md` 中 2026-02-23 ATTI 跟随风险条目。
+

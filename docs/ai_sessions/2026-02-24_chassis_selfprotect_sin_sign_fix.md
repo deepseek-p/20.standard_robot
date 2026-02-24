@@ -1,4 +1,4 @@
-# 2026-02-24 chassis selfprotect sin sign fix
+﻿# 2026-02-24 chassis selfprotect sin sign fix
 
 ## 1. 目标
 
@@ -68,7 +68,7 @@
 
 ## 7. 验证方式与结果
 
-- 串口：未录入新帧（本轮无新增 `data.md` 片段）。
+- 串口：未录入新帧（本轮无新增 `data` 片段）。
 - USB：无新增 VOFA+ 帧记录。
 - 示波器：未执行。
 - 上位机：用户口述结果为“上一轮调整现象正常，能够边转边走”。
@@ -90,5 +90,6 @@
 ## 9. 附件/证据
 
 - 上轮记录：`docs/ai_sessions/2026-02-24_chassis_selfprotect_frame_rotation_compensation.md`
-- 数据来源：`data.md`（上轮验收结论依据）
+- 数据来源：`data`（上轮验收结论依据）
 - 风险关联：`docs/risk_log.md` 2026-02-24 条目
+

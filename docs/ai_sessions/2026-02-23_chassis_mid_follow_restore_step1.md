@@ -1,4 +1,4 @@
-# 2026-02-23 chassis MID follow restore step1
+﻿# 2026-02-23 chassis MID follow restore step1
 
 ## 1. 目标
 
@@ -69,6 +69,7 @@
 
 ## 9. 附件/证据
 
-- 日志路径：`data.md`（本轮分析前基线数据）。
+- 日志路径：`data`（本轮分析前基线数据）。
 - 截图/波形：暂无。
 - 相关风险条目：`docs/risk_log.md` 中“FOLLOW_GIMBAL_YAW + ENCONDE 耦合”条目。
+

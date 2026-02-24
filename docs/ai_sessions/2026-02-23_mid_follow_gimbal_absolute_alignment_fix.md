@@ -1,4 +1,4 @@
-# 2026-02-23 MID follow gimbal absolute alignment fix
+﻿# 2026-02-23 MID follow gimbal absolute alignment fix
 
 ## 1. 目标
 
@@ -76,5 +76,6 @@
 
 ## 9. 附件/证据
 
-- 日志路径：`data.md`（本轮前后对比用）。
+- 日志路径：`data`（本轮前后对比用）。
 - 相关风险条目：`docs/risk_log.md` 中“ATTI 下 FOLLOW + ENCONDE 耦合自旋”条目。
+
