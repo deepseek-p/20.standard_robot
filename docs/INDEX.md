@@ -40,6 +40,14 @@
 - [ai_sessions/2026-02-24_docs_acceptance_backfill.md](ai_sessions/2026-02-24_docs_acceptance_backfill.md)：前几次底盘/云台联调的 docs 验收补录与状态收口
 - [ai_sessions/2026-02-24_chassis_selfprotect_frame_rotation_compensation.md](ai_sessions/2026-02-24_chassis_selfprotect_frame_rotation_compensation.md)：UP 小陀螺平移坐标补偿，修复“推前进画圆”
 - [ai_sessions/2026-02-24_chassis_selfprotect_sin_sign_fix.md](ai_sessions/2026-02-24_chassis_selfprotect_sin_sign_fix.md)：UP 平移补偿第二轮：修正 `sin(relative_angle)` 方向符号
+- [ai_sessions/2026-02-24_pitch_linkage_gyro_mode_pid_tune.md](ai_sessions/2026-02-24_pitch_linkage_gyro_mode_pid_tune.md)：Pitch 连杆工况参数重标定（外环/速度环/灵敏度）
+- [ai_sessions/2026-02-24_pitch_speed_loop_limit_cycle_tune.md](ai_sessions/2026-02-24_pitch_speed_loop_limit_cycle_tune.md)：Pitch 速度环极限环二调（仅速度环降增益）
+- [ai_sessions/2026-02-24_pitch_rc_sensitivity_reduce.md](ai_sessions/2026-02-24_pitch_rc_sensitivity_reduce.md)：Pitch 遥控输入灵敏度下调（仅改 `PITCH_RC_SEN`）
+- [ai_sessions/2026-02-24_usb_cdc_online_pid_tuning.md](ai_sessions/2026-02-24_usb_cdc_online_pid_tuning.md)：USB CDC 在线 PID 调参链路（RX 命令解析 + 运行时读写）
+- [ai_sessions/2026-02-25_pitch_absolute_mode_encode_fallback.md](ai_sessions/2026-02-25_pitch_absolute_mode_encode_fallback.md)：AHRS pitch 失真场景下的 pitch ENCONDE fallback（yaw 保持 GYRO）
+- [ai_sessions/2026-02-25_pitch_encode_speed_feedback_from_encoder.md](ai_sessions/2026-02-25_pitch_encode_speed_feedback_from_encoder.md)：Pitch ENCONDE 模式下速度环改用编码器转速反馈（替代 IMU pitch gyro）
+- [ai_sessions/2026-02-25_pitch_encode_ecd_lpf_damping.md](ai_sessions/2026-02-25_pitch_encode_ecd_lpf_damping.md)：Pitch ENCONDE 速度反馈加入一阶低通，抑制 1ms 量化阶梯引发的残余振荡
+- [ai_sessions/2026-02-25_pitch_encode_pid_kp24_ki0_finalize.md](ai_sessions/2026-02-25_pitch_encode_pid_kp24_ki0_finalize.md)：Pitch ENCONDE 角度环参数固化为 Kp=24/Ki=0，消除上电重复调参
 - [adr/ADR_TEMPLATE.md](adr/ADR_TEMPLATE.md)：架构决策记录模板
 
 ## 根目录兼容入口

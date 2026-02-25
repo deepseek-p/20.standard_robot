@@ -7,6 +7,11 @@
 | 日期 | 模块 | 风险描述 | 触发条件 | 影响范围 | 严重度（H/M/L） | 缓解措施 | 当前状态 | 验证计划 | 负责人 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | YYYY-MM-DD | 例如 `chassis_task` | 例如“功率限制阈值在低电压下可能误触发” | 例如“电池 < 22V 且持续急加速” | 例如“底盘动力突降” | H | 例如“增加滤波 + 分段阈值” | Open | 例如“长跑 15min + 上位机功率记录” | @name(对话名称为负责人名字) |
+| 2026-02-25 | `gimbal_task` | Pitch ENCONDE 模式若速度环仍用 IMU pitch gyro 反馈，反馈源与执行器不一致，连杆工况下易引起振荡或不稳定 | `pitch_mode=ENCONDE` 且 pitch 闭环控制启用 | pitch 稳定性、电流波动、机构冲击 | H | `gimbal_feedback_update()` 中 ENCONDE 模式改为编码器 `speed_rpm -> rad/s` 反馈；并下调 ENCONDE 角度环 `Kp/Ki`、关闭 `Kd`，提高 `max_out/max_iout` 以改善可控区间 | In Progress | 烧录后采集 `pitch_mode/pitch_gyro/pitch_gyro_set/pitch_given_current/pitch_relative_set`，确认 ENCONDE 下速度反馈同相且峰值下降 | @Codex |
+| 2026-02-25 | `gimbal_behaviour` / `gimbal_task` / `AHRS.lib` | pitch 轴 `GYRO` 反馈链路失真（90°旋转仅约2.6°），导致绝对角行为下 pitch 控制不可用；已切换为 ENCONDE fallback | `s0=MID/UP` 且绝对角行为启用，pitch 仍依赖 AHRS pitch 反馈时 | pitch 稳定性、限位安全、瞄准一致性 | H | 绝对角行为下改为 `yaw=GYRO`、`pitch=ENCONDE`；并重设 `PITCH_ENCODE_RELATIVE_PID_*` 到连杆适配参数 | In Progress | 烧录后用 MCP 连续采集验证：模式值、`pitch_rel/rel_set` 收敛、`pitch_cur` 波动、轻推与松手回位 | @Codex |
+| 2026-02-24 | `gimbal_task` | Pitch 连杆机构下遥控输入灵敏度过高，轻推摇杆即可能快速触发上下物理限位 | `s0=MID/UP`，`rc_ch3` 持续输入，目标角以过高斜率累加 | Pitch 操控手感、机械冲击风险、瞄准精度 | H | 本轮仅降低输入增量宏：`PITCH_RC_SEN -0.000004f -> -0.000001f`；保持 PID 不变 | In Progress | 复测慢推/快推/微调，观测 `col43/col34/col33/col39`，确认不再快速触限且响应可接受 | @Codex |
+| 2026-02-24 | `usb_task` / `usbd_cdc_if` | 新增 USB 在线 PID 调参后，若误下发极端参数（尤其 `Kp/Ki`）或命令源不可控，可能引发控制不稳定；同时回复与遥测共享 CDC，拥塞时会丢回复 | USB CDC 接入并连续执行 `SET` / `DUMP`，或现场多主机误连接 | 云台/底盘稳定性、调参效率、联调安全 | H | 已增加参数范围约束与非阻塞回复（忙时丢弃）；下一步增加上位机侧白名单与“参数生效清单”操作规程 | In Progress | 执行 4 组实测：单条 SET/GET、连续 SET、DUMP、边遥测边调参；记录回复丢失率、`drop` 增长、控制链路是否异常 | @Codex |
+| 2026-02-24 | `gimbal_task` | Pitch 连杆驱动下，第一轮 GYRO 参数已显著改善角度稳态，但速度环仍出现静止段极限环（`col39` 在约 `+5000~-6600` 周期翻转） | `s0=MID/UP` 且无输入静止或慢推/快推后回位 | Pitch 机构冲击、瞄准稳定性、温升 | H | 已执行第二轮速度环降增益：`Kp 1500->800`、`Ki 30->10`、`max_out 20000->15000`、`max_iout 5000->3000`；角度环参数保持不变 | In Progress | 已在 `data/pitch_data.md` 第二版（1136-1492 行）回填：静止波动显著下降；当前慢推/快推峰值约 `4413/4967`，下一轮继续压到 `<4000` | @Codex |
 | 2026-02-24 | `chassis_behaviour` / `chassis_task` | UP（HUST_SelfProtect）下若平移命令未做坐标补偿，会因底盘自旋导致轨迹画圆、操作方向漂移 | `s0=UP` 且 `wz` 持续自旋同时存在 `vx/vy` 输入 | 小陀螺机动可控性、操作手瞄向一致性 | H | 第一轮已加入 `relative_angle` 坐标旋转补偿；上轮验收结论为“圈变小但未消除”，第二轮已修复符号（`sin(-rel)` -> `sin(rel)`）；用户口述“现象正常，可边转边走” | Mitigated（口述，待VOFA+/长跑） | 后续补充 VOFA+ 四场景与长跑数据：静止自旋、自旋+推前、自旋+推侧、MID/UP 切挡，确认量化指标稳定 | @Codex |
 | 2026-02-23 | `chassis_behaviour` / `chassis_task` | 将 `GPS(s0=UP)` 改为 HUST SelfProtect（常值旋转）后，若 `wz` 偏大或地面附着高，可能出现起转冲击、电流峰值升高 | 上电后直接进 GPS 挡位，或平移叠加持续旋转 | 底盘电机温升、功率余量、机体稳定性 | H | 先以 `CHASSIS_HUST_SELF_PROTECT_WZ=4.5f` 作为保守初值；实机按“空载抬轮 -> 落地低速 -> 正常机动”分阶段验证，必要时下调 `WZ` 与平移缩放宏 | Open | 记录 `wz_set`、底盘电流、功率缓冲；覆盖静止 30s、自旋平移 30s、ATTI<->GPS 切挡三类场景 | @Codex |
 | 2026-02-23 | `chassis_behaviour` | 将 ATTI/GPS 的驾驶语义切换为“ATTI=HUST_Act、GPS=HUST_SelfProtect”后，若操作手沿用旧记忆，可能误入小陀螺 | 联调/比赛中按旧习惯拨挡 | 操作一致性、战术动作执行 | M | 在遥控器贴纸/操作文档明确 `s0` 新语义；赛前口令确认一次 | Open | 联调时执行 10 次模式切挡确认并记录误操作次数 | @Codex |
@@ -28,6 +33,10 @@
 | 2026-02-20 | `usb_task` | USB 调试遥测频率提高后，若主机未就绪或 CDC 通道繁忙，可能出现持续丢包与调试数据不连续 | USB 未枚举、串口工具未打开、输出通道过多或频率过高 | 调试结论可信度、排障效率 | M | 使用通道掩码与分通道周期限频；保留 `drop` 计数并在日志中持续上报；必要时关闭 `RC` 通道或降低 GIMBAL/CHASSIS 频率 | Open | 在默认配置下长跑 10 分钟，统计 `drop` 增长速率；再在高负载配置（全通道）复测并确定安全频率上限 | @Codex |
 | 2026-02-20 | `usb_task` / `gimbal_task` / `chassis_task` | 调试快照为跨任务无锁读取，极端情况下可能读到非原子组合值（同一帧内字段时间不完全一致） | 云台/底盘任务高速更新同时 USB 任务取样 | 单帧精确性、瞬态分析精度 | M | 明确“快照用于趋势与事件定位，不作为硬实时闭环依据”；后续若需高精度可升级为双缓冲时间戳快照 | Open | 比对 USB 遥测与上位机/示波器关键边沿，确认趋势一致性；若出现高频抖动误判再引入双缓冲机制 | @Codex |
 
+| 2026-02-25 | `gimbal_task` | pitch ENCONDE 速度反馈虽已改为 ecd差分，但 1ms 周期下反馈量化阶梯（0/0.767rad/s）导致速度环阻尼不连续，残余振荡仍明显 | `pitch_mode=ENCONDE` 且静止/小扰动工况 | pitch 稳定性、回位品质、电流波动 | M | 在 `gimbal_feedback_update()` 的 ENCONDE 分支加入一阶低通（alpha=0.05）平滑速度反馈 | In Progress | 对比 `pitch_gyro/pitch_given_current/pitch_relative`：确认阶梯噪声下降、振荡幅值缩小、回位更平滑 | @Codex |
+
+| 2026-02-25 | `gimbal_task` | pitch ENCONDE 默认参数若未固化在线验证最优值，上电后仍需重复在线调参，存在调参一致性与现场效率风险 | 使用旧默认 `Kp=6, Ki=0.1` 上电运行 | pitch 跟踪精度、调试效率、现场稳定性 | M | 固化 `PITCH_ENCODE_RELATIVE_PID` 为 `Kp=24, Ki=0, Kd=0, max_out=10, max_iout=0.5`，抑制连杆静摩擦下积分 windup | Mitigated（待长跑） | 复测上电即用场景：静态误差、动态跟踪误差、连续动作 10min 温升后稳定性 | @Codex |
+
 ## 使用规则
 
 - 每个高风险改动都应检查是否新增/更新风险条目。
@@ -47,4 +56,5 @@
 - Trigger: field count growth or large integer values with small tx buffer.
 - Mitigation: increase frame buffer to `1024` and drop oversized frames instead of sending truncation.
 - Status: Mitigated in code, pending VOFA+ long-run verification.
+
 

@@ -28,7 +28,7 @@
 | `application/CAN_receive.c` / `application/CAN_receive.h` | 处理 CAN 电机反馈与电流下发 | `HAL_CAN_RxFifo0MsgPendingCallback`、`CAN_cmd_chassis`、`CAN_cmd_gimbal`、`motor_measure_t` |
 | `application/remote_control.c` / `application/remote_control.h` | 解析 SBUS 遥控数据并处理掉线恢复 | `USART3_IRQHandler`、`remote_control_init`、`get_remote_control_point`、`RC_ctrl_t` |
 | `application/gimbal_task.c` / `application/gimbal_task.h` | 云台控制主任务（姿态环/速度环 + CAN 输出，导出调试快照） | `gimbal_task`、`gimbal_control_t`、`gimbal_mode_change_control_transit`、`gimbal_absolute_angle_limit`、`gimbal_relative_angle_limit`、`set_cali_gimbal_hook`、`cmd_cali_gimbal_hook`、`get_gimbal_debug_snapshot`；`GIMBAL_YAW_CONTINUOUS_TURN` 下采用 yaw `continuous_*` 字段、`set/control_loop` 调用点拆分、模式切换连续 set 同步与 snapshot 连续角输出 |
-| `application/gimbal_behaviour.c` / `application/gimbal_behaviour.h` | 云台行为状态机（ZERO_FORCE/INIT/CALI/ANGLE） | `gimbal_behaviour_mode_set`、`gimbal_behaviour_control_set`、`gimbal_cali_control`；当前拨杆映射为 `s0=DOWN -> GIMBAL_ZERO_FORCE`、`s0=MID/UP -> GIMBAL_ABSOLUTE_ANGLE`；连续旋转模式下跳过 yaw max/min 校准步并直接进入 `GIMBAL_CALI_END_STEP`，同时禁用 `TURN_KEYBOARD` 的 180° 掉头逻辑 |
+| `application/gimbal_behaviour.c` / `application/gimbal_behaviour.h` | 云台行为状态机（ZERO_FORCE/INIT/CALI/ANGLE） | `gimbal_behaviour_mode_set`、`gimbal_behaviour_control_set`、`gimbal_cali_control`；当前拨杆映射为 `s0=DOWN -> GIMBAL_ZERO_FORCE`、`s0=MID/UP -> GIMBAL_ABSOLUTE_ANGLE`；在 `GIMBAL_ABSOLUTE_ANGLE` 下当前控制为 `yaw=GIMBAL_MOTOR_GYRO`、`pitch=GIMBAL_MOTOR_ENCONDE`（AHRS pitch 失真下的临时 fallback）；连续旋转模式下跳过 yaw max/min 校准步并直接进入 `GIMBAL_CALI_END_STEP`，同时禁用 `TURN_KEYBOARD` 的 180° 掉头逻辑 |
 | `application/chassis_task.c` / `application/chassis_task.h` | 底盘控制主任务（运动解算、PID、CAN 输出，导出调试快照） | `chassis_task`、`chassis_move_t`、`chassis_rc_to_control_vector`、`get_chassis_debug_snapshot` |
 | `application/chassis_behaviour.c` / `application/chassis_behaviour.h` | 底盘行为状态机（官方模式 + HUST 模式映射） | `chassis_behaviour_mode_set`、`chassis_behaviour_control_set`、`CHASSIS_HUST_SELF_PROTECT`；当前遥控映射（step1 回切）：`s0=UP -> HUST_SelfProtect`、`s0=MID -> HUST_Act(底盘 FOLLOW_GIMBAL_YAW)`、`s0=DOWN -> CHASSIS_NO_MOVE`；`HUST_SelfProtect` 在行为函数内已增加基于 `relative_angle` 的平移坐标补偿，避免自旋时推杆轨迹画圆 |
 | `application/chassis_power_control.c` / `application/chassis_power_control.h` | 底盘功率限流（参考裁判系统功率/缓冲） | `chassis_power_control`、`get_chassis_power_and_buffer` |
@@ -37,7 +37,7 @@
 | `application/referee_usart_task.c` / `application/referee_usart_task.h` | 裁判系统串口 DMA 接收与协议解包任务 | `referee_usart_task`、`USART6_IRQHandler`、`referee_unpack_fifo_data` |
 | `application/INS_task.c` / `application/INS_task.h` | IMU 采样、姿态解算、温控与数据发布 | `INS_task`、`get_INS_angle_point`、`HAL_GPIO_EXTI_Callback`、`DMA2_Stream2_IRQHandler` |
 | `application/detect_task.c` / `application/detect_task.h` | 在线状态与错误检测中心 | `detect_task`、`detect_hook`、`toe_is_error`、`error_list` |
-| `application/usb_task.c` / `application/usb_task.h` | USB CDC 调试遥测任务（多通道周期帧 + 事件帧 + 丢包计数） | `usb_task`、`usb_debug_set_channel_mask`、`usb_debug_get_channel_mask`、`CDC_Transmit_FS` |
+| `application/usb_task.c` / `application/usb_task.h` | USB CDC 调试任务（FireWater 遥测 + 在线 PID 命令解析） | `usb_task`、`usb_debug_set_channel_mask`、`usb_debug_get_channel_mask`、`usb_cmd_process`、`CDC_Transmit_FS`、`usb_rx_available`、`usb_rx_read_byte` |
 | `application/oled_task.c` / `application/oled_task.h` | OLED 状态显示任务 | `oled_task`、`OLED_*` 接口 |
 | `application/voltage_task.c` / `application/voltage_task.h` | 电池电压采样与电量估算 | `battery_voltage_task`、`get_battery_percentage` |
 
@@ -85,6 +85,8 @@
 ## 2026-02-20 Supplement: USB Telemetry Safety
 
 - `application/usb_task.c/h`: switched to FireWater fixed-frame telemetry for VOFA+; kept channel-mask interface for future debug expansion.
+- `application/usb_task.c`: add RX command parser (`SET/GET/DUMP`) for runtime PID tuning in task context.
 - `Src/usbd_cdc_if.c`: added null guard before using `hUsbDeviceFS.pClassData` in `CDC_Transmit_FS` to prevent USB-not-configured hard fault.
+- `Src/usbd_cdc_if.c/h`: add SPSC RX ring buffer API (`usb_rx_available` / `usb_rx_read_byte`), and keep `CDC_Receive_FS` as enqueue-only fast path.
 - `Src/freertos.c`: `USBTask` stack increased to improve robustness for long-format telemetry output.
 

@@ -32,6 +32,9 @@
 
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
+static uint8_t usb_rx_buf[256];
+static volatile uint16_t usb_rx_head = 0;
+static volatile uint16_t usb_rx_tail = 0;
 
 /* USER CODE END PV */
 
@@ -263,6 +266,21 @@ static int8_t CDC_Control_FS(uint8_t cmd, uint8_t* pbuf, uint16_t length)
 static int8_t CDC_Receive_FS(uint8_t* Buf, uint32_t *Len)
 {
   /* USER CODE BEGIN 6 */
+  uint32_t i;
+  uint16_t next_head;
+
+  for (i = 0; i < *Len; i++)
+  {
+    next_head = (uint16_t)((usb_rx_head + 1u) % (uint16_t)sizeof(usb_rx_buf));
+    if (next_head == usb_rx_tail)
+    {
+      continue;
+    }
+
+    usb_rx_buf[usb_rx_head] = Buf[i];
+    usb_rx_head = next_head;
+  }
+
   USBD_CDC_SetRxBuffer(&hUsbDeviceFS, &Buf[0]);
   USBD_CDC_ReceivePacket(&hUsbDeviceFS);
   return (USBD_OK);
@@ -299,6 +317,35 @@ uint8_t CDC_Transmit_FS(uint8_t* Buf, uint16_t Len)
 }
 
 /* USER CODE BEGIN PRIVATE_FUNCTIONS_IMPLEMENTATION */
+uint16_t usb_rx_available(void)
+{
+  uint16_t head;
+  uint16_t tail;
+
+  head = usb_rx_head;
+  tail = usb_rx_tail;
+
+  if (head >= tail)
+  {
+    return (uint16_t)(head - tail);
+  }
+
+  return (uint16_t)(sizeof(usb_rx_buf) - tail + head);
+}
+
+uint8_t usb_rx_read_byte(void)
+{
+  uint8_t byte = 0;
+
+  if (usb_rx_head == usb_rx_tail)
+  {
+    return 0;
+  }
+
+  byte = usb_rx_buf[usb_rx_tail];
+  usb_rx_tail = (uint16_t)((usb_rx_tail + 1u) % (uint16_t)sizeof(usb_rx_buf));
+  return byte;
+}
 
 /* USER CODE END PRIVATE_FUNCTIONS_IMPLEMENTATION */
 

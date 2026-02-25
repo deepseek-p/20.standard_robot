@@ -18,7 +18,7 @@
 | 7 | `led` | `led_RGB_flow_task` | `osPriorityNormal` | 256 | 1（颜色渐变内循环） | `osDelay(1)` | 否 | RGB 颜色表 | 渐变状态 -> RGB LED 输出 | RGB LED | CPU 占用上升 | 观察灯效平滑度与系统负载 | 降低刷新频率或禁用任务 |
 | 8 | `OLED` | `oled_task` | `osPriorityLow` | 256 | `OLED_CONTROL_TIME = 10` | `osDelay(1000)`、`osDelay(10)`、`osDelay(OLED_CONTROL_TIME)` | 否 | `error_list`、电池百分比 | 错误状态/电池 -> OLED 页面 | I2C2 OLED | I2C ACK 异常导致显示阻塞 | OLED 上电自检 + ACK 监控 | 停用 OLED 刷新或恢复原显示逻辑 |
 | 9 | `REFEREE` | `referee_usart_task` | `osPriorityNormal` | 128 | 10 | `osDelay(10)` | 否 | `referee_fifo`、裁判结构体 | USART6 DMA 数据 -> 裁判状态结构 | USART6 DMA | FIFO 溢出、CRC 失败导致数据陈旧 | 上位机喂帧 + CRC 异常注入 | 回退解析状态机与 FIFO 参数 |
-| 10 | `USBTask` | `usb_task` | `osPriorityNormal` | 512 | 20（FireWater 帧） | `osDelay(USB_DEBUG_TASK_PERIOD_MS=5)` | 否 | `error_list`、云台/底盘调试快照、RC 数据、丢包计数 | 调试快照 -> USB FireWater 数值帧（VOFA+） | USB FS CDC | CDC 拥塞丢包、格式化开销导致任务栈压力 | VOFA+ 连续接收 10+ 分钟并观测 `drop` 增长速率 | 降低输出频率/关闭部分通道或回退旧版状态页输出 |
+| 10 | `USBTask` | `usb_task` | `osPriorityNormal` | 512 | 20（FireWater 帧） | `osDelay(USB_DEBUG_TASK_PERIOD_MS=5)` | 否 | `error_list`、云台/底盘调试快照、RC 数据、丢包计数、USB RX 命令队列 | 调试快照 -> USB FireWater 数值帧（VOFA+）；USB 文本命令 -> 运行时 PID 参数更新与回读 | USB FS CDC | CDC 拥塞丢包、格式化开销、在线调参误设参数风险 | VOFA+ 连续接收 + 命令交互并观测 `drop` 与 `OK/ERR/DUMP` 回复可达性 | 降低输出频率/关闭部分通道；回退在线调参补丁 |
 | 11 | `BATTERY_VOLTAGE` | `battery_voltage_task` | `osPriorityNormal` | 128 | 100（启动后） | `osDelay(1000)`，循环 `osDelay(100)` | 否 | `battery_voltage`、`electricity_percentage` | ADC 采样 -> 电量百分比 | ADC | 电量估算曲线偏差 | 万用表对比 + 长时放电曲线 | 回退 `VOLTAGE_DROP`/估算曲线 |
 | 12 | `SERVO` | `servo_task` | `osPriorityNormal` | 128 | 10 | `osDelay(10)` | 否 | `servo_pwm[]`、RC 键值 | 键盘输入 -> `servo_pwm_set` | TIM PWM 舵机口 | 机械行程越界/抖动 | 空载与负载行程测试 | 恢复 PWM 限幅与按键映射 |
 
@@ -44,3 +44,9 @@
 - `USBTask` stack was increased to `512` in `Src/freertos.c` to reduce formatting stack risk.
 - USB transmit path now depends on non-blocking send + drop counter; busy path never blocks control tasks.
 - New board-level protection in `Src/usbd_cdc_if.c`: if `hUsbDeviceFS.pClassData == NULL`, transmit returns fail instead of dereferencing null.
+
+## 2026-02-24 Supplement: USB Online PID Tuning
+
+- `USBTask` now parses CDC RX text commands in task context before `osDelay`: `SET/GET/DUMP`.
+- `CDC_Receive_FS` remains enqueue-only and exports RX ring buffer accessors (`usb_rx_available` / `usb_rx_read_byte`).
+- Runtime writable control accessors are added for gimbal/chassis control objects to support direct PID field updates.
