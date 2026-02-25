@@ -24,6 +24,10 @@
 #include "usbd_cdc_if.h"
 
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdarg.h>
+#include <ctype.h>
 
 #include "detect_task.h"
 #include "voltage_task.h"
@@ -34,6 +38,11 @@
 #define USB_DEBUG_FRAME_MAX_LEN 1024u
 #define USB_DEBUG_RAD_SCALE     1000.0f
 #define USB_DEBUG_INVALID_INT   2147483647L
+#define USB_CMD_LINE_MAX_LEN    128u
+#define USB_CMD_REPLY_MAX_LEN   192u
+
+#define USB_CMD_GAIN_LIMIT_MAX  50000.0f
+#define USB_CMD_OUT_LIMIT_MAX   30000.0f
 
 /*
  * FireWater fixed field order for VOFA+ (index:name -> meaning):
@@ -172,6 +181,28 @@ static uint8_t usb_last_chassis_mode = 0xFFu;
 static uint8_t usb_last_yaw_mode = 0xFFu;
 static uint8_t usb_last_pitch_mode = 0xFFu;
 
+typedef enum
+{
+    USB_PID_PARAM_KP = 0,
+    USB_PID_PARAM_KI,
+    USB_PID_PARAM_KD,
+    USB_PID_PARAM_MAX_OUT,
+    USB_PID_PARAM_MAX_IOUT,
+} usb_pid_param_e;
+
+typedef enum
+{
+    USB_PID_TARGET_PITCH_SPEED = 0,
+    USB_PID_TARGET_PITCH_ANGLE,
+    USB_PID_TARGET_PITCH_ENCODE,
+    USB_PID_TARGET_YAW_SPEED,
+    USB_PID_TARGET_YAW_ANGLE,
+    USB_PID_TARGET_YAW_ENCODE,
+    USB_PID_TARGET_CHASSIS_FOLLOW,
+    USB_PID_TARGET_CHASSIS_WHEEL,
+    USB_PID_TARGET_COUNT,
+} usb_pid_target_e;
+
 static uint32_t usb_debug_now_ms(void);
 static uint32_t usb_debug_next_seq(void);
 static int32_t usb_debug_fp32_to_milli(fp32 value);
@@ -180,6 +211,23 @@ static int32_t usb_debug_masked_i16(uint16_t bit, int16_t value);
 static int32_t usb_debug_masked_i32(uint16_t bit, int32_t value);
 static int32_t usb_debug_masked_fp32_milli(uint16_t bit, fp32 value);
 static bool_t usb_emit_firewater_frame(uint32_t now_ms);
+static void usb_cmd_process(void);
+static void usb_cmd_process_line(char *line);
+static void usb_cmd_dump_all(void);
+static int usb_cmd_stricmp(const char *lhs, const char *rhs);
+static const char *usb_cmd_target_name(usb_pid_target_e target);
+static const char *usb_cmd_param_name(usb_pid_param_e param);
+static bool_t usb_cmd_parse_target(const char *text, usb_pid_target_e *target);
+static bool_t usb_cmd_parse_param(const char *text, usb_pid_param_e *param);
+static bool_t usb_cmd_parse_value(const char *text, fp32 *value);
+static bool_t usb_cmd_value_in_range(usb_pid_param_e param, fp32 value);
+static bool_t usb_cmd_get_target_param(usb_pid_target_e target, usb_pid_param_e param, fp32 *value);
+static bool_t usb_cmd_set_target_param(usb_pid_target_e target, usb_pid_param_e param, fp32 value);
+static bool_t usb_cmd_get_gimbal_param(gimbal_PID_t *pid, usb_pid_param_e param, fp32 *value);
+static bool_t usb_cmd_get_common_param(pid_type_def *pid, usb_pid_param_e param, fp32 *value);
+static bool_t usb_cmd_set_gimbal_param(gimbal_PID_t *pid, usb_pid_param_e param, fp32 value);
+static bool_t usb_cmd_set_common_param(pid_type_def *pid, usb_pid_param_e param, fp32 value);
+static void usb_cmd_replyf(const char *format, ...);
 
 void usb_debug_set_channel_mask(uint16_t channel_mask)
 {
@@ -211,8 +259,649 @@ void usb_task(void const *argument)
             last_frame_ms = now_ms;
         }
 #endif
+        usb_cmd_process();
 
         osDelay(USB_DEBUG_TASK_PERIOD_MS);
+    }
+}
+
+static void usb_cmd_process(void)
+{
+    static char cmd_line[USB_CMD_LINE_MAX_LEN];
+    static uint16_t cmd_len = 0;
+    static uint8_t cmd_overflow = 0;
+
+    while (usb_rx_available() > 0u)
+    {
+        uint8_t byte = usb_rx_read_byte();
+
+        if (byte == '\r')
+        {
+            continue;
+        }
+
+        if (byte == '\n')
+        {
+            if (cmd_overflow)
+            {
+                usb_cmd_replyf("ERR line_too_long\r\n");
+            }
+            else if (cmd_len > 0u)
+            {
+                cmd_line[cmd_len] = '\0';
+                usb_cmd_process_line(cmd_line);
+            }
+
+            cmd_len = 0u;
+            cmd_overflow = 0u;
+            continue;
+        }
+
+        if (cmd_overflow)
+        {
+            continue;
+        }
+
+        if (cmd_len < (USB_CMD_LINE_MAX_LEN - 1u))
+        {
+            cmd_line[cmd_len++] = (char)byte;
+        }
+        else
+        {
+            cmd_overflow = 1u;
+        }
+    }
+}
+
+static void usb_cmd_process_line(char *line)
+{
+    char *cmd;
+    char *target_text;
+    char *param_text;
+    char *value_text;
+    char *extra;
+    usb_pid_target_e target;
+    usb_pid_param_e param;
+    fp32 value;
+
+    if (line == NULL)
+    {
+        return;
+    }
+
+    cmd = strtok(line, " \t");
+    if (cmd == NULL)
+    {
+        return;
+    }
+
+    if (usb_cmd_stricmp(cmd, "SET") == 0)
+    {
+        target_text = strtok(NULL, " \t");
+        param_text = strtok(NULL, " \t");
+        value_text = strtok(NULL, " \t");
+        extra = strtok(NULL, " \t");
+        if ((target_text == NULL) || (param_text == NULL) || (value_text == NULL) || (extra != NULL))
+        {
+            usb_cmd_replyf("ERR format SET\r\n");
+            return;
+        }
+
+        if (!usb_cmd_parse_target(target_text, &target))
+        {
+            usb_cmd_replyf("ERR target %s\r\n", target_text);
+            return;
+        }
+
+        if (!usb_cmd_parse_param(param_text, &param))
+        {
+            usb_cmd_replyf("ERR param %s\r\n", param_text);
+            return;
+        }
+
+        if (!usb_cmd_parse_value(value_text, &value))
+        {
+            usb_cmd_replyf("ERR value %s\r\n", value_text);
+            return;
+        }
+
+        if (!usb_cmd_value_in_range(param, value))
+        {
+            usb_cmd_replyf("ERR range %s %s %.6f\r\n",
+                           usb_cmd_target_name(target),
+                           usb_cmd_param_name(param),
+                           (double)value);
+            return;
+        }
+
+        if (!usb_cmd_set_target_param(target, param, value))
+        {
+            usb_cmd_replyf("ERR target %s\r\n", usb_cmd_target_name(target));
+            return;
+        }
+
+        usb_cmd_replyf("OK SET %s %s %.6f\r\n",
+                       usb_cmd_target_name(target),
+                       usb_cmd_param_name(param),
+                       (double)value);
+        return;
+    }
+
+    if (usb_cmd_stricmp(cmd, "GET") == 0)
+    {
+        target_text = strtok(NULL, " \t");
+        param_text = strtok(NULL, " \t");
+        extra = strtok(NULL, " \t");
+
+        if ((target_text == NULL) || (param_text == NULL) || (extra != NULL))
+        {
+            usb_cmd_replyf("ERR format GET\r\n");
+            return;
+        }
+
+        if (!usb_cmd_parse_target(target_text, &target))
+        {
+            usb_cmd_replyf("ERR target %s\r\n", target_text);
+            return;
+        }
+
+        if (!usb_cmd_parse_param(param_text, &param))
+        {
+            usb_cmd_replyf("ERR param %s\r\n", param_text);
+            return;
+        }
+
+        if (!usb_cmd_get_target_param(target, param, &value))
+        {
+            usb_cmd_replyf("ERR target %s\r\n", usb_cmd_target_name(target));
+            return;
+        }
+
+        usb_cmd_replyf("OK GET %s %s %.6f\r\n",
+                       usb_cmd_target_name(target),
+                       usb_cmd_param_name(param),
+                       (double)value);
+        return;
+    }
+
+    if (usb_cmd_stricmp(cmd, "DUMP") == 0)
+    {
+        extra = strtok(NULL, " \t");
+        if (extra != NULL)
+        {
+            usb_cmd_replyf("ERR format DUMP\r\n");
+            return;
+        }
+
+        usb_cmd_dump_all();
+        return;
+    }
+
+    usb_cmd_replyf("ERR cmd %s\r\n", cmd);
+}
+
+static void usb_cmd_dump_all(void)
+{
+    usb_pid_target_e target;
+    fp32 kp;
+    fp32 ki;
+    fp32 kd;
+    fp32 max_out;
+    fp32 max_iout;
+
+    for (target = USB_PID_TARGET_PITCH_SPEED; target < USB_PID_TARGET_COUNT; target++)
+    {
+        if (!usb_cmd_get_target_param(target, USB_PID_PARAM_KP, &kp) ||
+            !usb_cmd_get_target_param(target, USB_PID_PARAM_KI, &ki) ||
+            !usb_cmd_get_target_param(target, USB_PID_PARAM_KD, &kd) ||
+            !usb_cmd_get_target_param(target, USB_PID_PARAM_MAX_OUT, &max_out) ||
+            !usb_cmd_get_target_param(target, USB_PID_PARAM_MAX_IOUT, &max_iout))
+        {
+            usb_cmd_replyf("ERR dump %s\r\n", usb_cmd_target_name(target));
+            continue;
+        }
+
+        usb_cmd_replyf("DUMP %s Kp=%.6f Ki=%.6f Kd=%.6f max_out=%.6f max_iout=%.6f\r\n",
+                       usb_cmd_target_name(target),
+                       (double)kp,
+                       (double)ki,
+                       (double)kd,
+                       (double)max_out,
+                       (double)max_iout);
+    }
+
+    usb_cmd_replyf("DUMP END\r\n");
+}
+
+static int usb_cmd_stricmp(const char *lhs, const char *rhs)
+{
+    unsigned char cl;
+    unsigned char cr;
+
+    if ((lhs == NULL) || (rhs == NULL))
+    {
+        return -1;
+    }
+
+    while ((*lhs != '\0') && (*rhs != '\0'))
+    {
+        cl = (unsigned char)tolower((unsigned char)*lhs);
+        cr = (unsigned char)tolower((unsigned char)*rhs);
+        if (cl != cr)
+        {
+            return (int)cl - (int)cr;
+        }
+        lhs++;
+        rhs++;
+    }
+
+    return (int)((unsigned char)tolower((unsigned char)*lhs) - (unsigned char)tolower((unsigned char)*rhs));
+}
+
+static const char *usb_cmd_target_name(usb_pid_target_e target)
+{
+    switch (target)
+    {
+    case USB_PID_TARGET_PITCH_SPEED:
+        return "pitch_speed";
+    case USB_PID_TARGET_PITCH_ANGLE:
+        return "pitch_angle";
+    case USB_PID_TARGET_PITCH_ENCODE:
+        return "pitch_encode";
+    case USB_PID_TARGET_YAW_SPEED:
+        return "yaw_speed";
+    case USB_PID_TARGET_YAW_ANGLE:
+        return "yaw_angle";
+    case USB_PID_TARGET_YAW_ENCODE:
+        return "yaw_encode";
+    case USB_PID_TARGET_CHASSIS_FOLLOW:
+        return "chassis_follow";
+    case USB_PID_TARGET_CHASSIS_WHEEL:
+        return "chassis_wheel";
+    default:
+        return "unknown";
+    }
+}
+
+static const char *usb_cmd_param_name(usb_pid_param_e param)
+{
+    switch (param)
+    {
+    case USB_PID_PARAM_KP:
+        return "Kp";
+    case USB_PID_PARAM_KI:
+        return "Ki";
+    case USB_PID_PARAM_KD:
+        return "Kd";
+    case USB_PID_PARAM_MAX_OUT:
+        return "max_out";
+    case USB_PID_PARAM_MAX_IOUT:
+        return "max_iout";
+    default:
+        return "unknown";
+    }
+}
+
+static bool_t usb_cmd_parse_target(const char *text, usb_pid_target_e *target)
+{
+    if ((text == NULL) || (target == NULL))
+    {
+        return 0;
+    }
+
+    if (usb_cmd_stricmp(text, "pitch_speed") == 0)
+    {
+        *target = USB_PID_TARGET_PITCH_SPEED;
+    }
+    else if (usb_cmd_stricmp(text, "pitch_angle") == 0)
+    {
+        *target = USB_PID_TARGET_PITCH_ANGLE;
+    }
+    else if (usb_cmd_stricmp(text, "pitch_encode") == 0)
+    {
+        *target = USB_PID_TARGET_PITCH_ENCODE;
+    }
+    else if (usb_cmd_stricmp(text, "yaw_speed") == 0)
+    {
+        *target = USB_PID_TARGET_YAW_SPEED;
+    }
+    else if (usb_cmd_stricmp(text, "yaw_angle") == 0)
+    {
+        *target = USB_PID_TARGET_YAW_ANGLE;
+    }
+    else if (usb_cmd_stricmp(text, "yaw_encode") == 0)
+    {
+        *target = USB_PID_TARGET_YAW_ENCODE;
+    }
+    else if (usb_cmd_stricmp(text, "chassis_follow") == 0)
+    {
+        *target = USB_PID_TARGET_CHASSIS_FOLLOW;
+    }
+    else if (usb_cmd_stricmp(text, "chassis_wheel") == 0)
+    {
+        *target = USB_PID_TARGET_CHASSIS_WHEEL;
+    }
+    else
+    {
+        return 0;
+    }
+
+    return 1;
+}
+
+static bool_t usb_cmd_parse_param(const char *text, usb_pid_param_e *param)
+{
+    if ((text == NULL) || (param == NULL))
+    {
+        return 0;
+    }
+
+    if (usb_cmd_stricmp(text, "kp") == 0)
+    {
+        *param = USB_PID_PARAM_KP;
+    }
+    else if (usb_cmd_stricmp(text, "ki") == 0)
+    {
+        *param = USB_PID_PARAM_KI;
+    }
+    else if (usb_cmd_stricmp(text, "kd") == 0)
+    {
+        *param = USB_PID_PARAM_KD;
+    }
+    else if (usb_cmd_stricmp(text, "max_out") == 0)
+    {
+        *param = USB_PID_PARAM_MAX_OUT;
+    }
+    else if (usb_cmd_stricmp(text, "max_iout") == 0)
+    {
+        *param = USB_PID_PARAM_MAX_IOUT;
+    }
+    else
+    {
+        return 0;
+    }
+
+    return 1;
+}
+
+static bool_t usb_cmd_parse_value(const char *text, fp32 *value)
+{
+    char *endptr;
+    fp32 parsed;
+
+    if ((text == NULL) || (value == NULL))
+    {
+        return 0;
+    }
+
+    parsed = strtof(text, &endptr);
+    if ((endptr == text) || (*endptr != '\0'))
+    {
+        return 0;
+    }
+
+    *value = parsed;
+    return 1;
+}
+
+static bool_t usb_cmd_value_in_range(usb_pid_param_e param, fp32 value)
+{
+    fp32 max_value;
+
+    if (value < 0.0f)
+    {
+        return 0;
+    }
+
+    if ((param == USB_PID_PARAM_KP) || (param == USB_PID_PARAM_KI) || (param == USB_PID_PARAM_KD))
+    {
+        max_value = USB_CMD_GAIN_LIMIT_MAX;
+    }
+    else
+    {
+        max_value = USB_CMD_OUT_LIMIT_MAX;
+    }
+
+    if (value > max_value)
+    {
+        return 0;
+    }
+
+    return 1;
+}
+
+static bool_t usb_cmd_get_target_param(usb_pid_target_e target, usb_pid_param_e param, fp32 *value)
+{
+    gimbal_control_t *gimbal;
+    chassis_move_t *chassis;
+
+    gimbal = get_gimbal_control_point();
+    chassis = get_chassis_control_point();
+    if ((gimbal == NULL) || (chassis == NULL))
+    {
+        return 0;
+    }
+
+    switch (target)
+    {
+    case USB_PID_TARGET_PITCH_SPEED:
+        return usb_cmd_get_common_param(&gimbal->gimbal_pitch_motor.gimbal_motor_gyro_pid, param, value);
+    case USB_PID_TARGET_PITCH_ANGLE:
+        return usb_cmd_get_gimbal_param(&gimbal->gimbal_pitch_motor.gimbal_motor_absolute_angle_pid, param, value);
+    case USB_PID_TARGET_PITCH_ENCODE:
+        return usb_cmd_get_gimbal_param(&gimbal->gimbal_pitch_motor.gimbal_motor_relative_angle_pid, param, value);
+    case USB_PID_TARGET_YAW_SPEED:
+        return usb_cmd_get_common_param(&gimbal->gimbal_yaw_motor.gimbal_motor_gyro_pid, param, value);
+    case USB_PID_TARGET_YAW_ANGLE:
+        return usb_cmd_get_gimbal_param(&gimbal->gimbal_yaw_motor.gimbal_motor_absolute_angle_pid, param, value);
+    case USB_PID_TARGET_YAW_ENCODE:
+        return usb_cmd_get_gimbal_param(&gimbal->gimbal_yaw_motor.gimbal_motor_relative_angle_pid, param, value);
+    case USB_PID_TARGET_CHASSIS_FOLLOW:
+        return usb_cmd_get_common_param(&chassis->chassis_angle_pid, param, value);
+    case USB_PID_TARGET_CHASSIS_WHEEL:
+        return usb_cmd_get_common_param(&chassis->motor_speed_pid[0], param, value);
+    default:
+        return 0;
+    }
+}
+
+static bool_t usb_cmd_set_target_param(usb_pid_target_e target, usb_pid_param_e param, fp32 value)
+{
+    gimbal_control_t *gimbal;
+    chassis_move_t *chassis;
+    uint8_t i;
+
+    gimbal = get_gimbal_control_point();
+    chassis = get_chassis_control_point();
+    if ((gimbal == NULL) || (chassis == NULL))
+    {
+        return 0;
+    }
+
+    switch (target)
+    {
+    case USB_PID_TARGET_PITCH_SPEED:
+        return usb_cmd_set_common_param(&gimbal->gimbal_pitch_motor.gimbal_motor_gyro_pid, param, value);
+    case USB_PID_TARGET_PITCH_ANGLE:
+        return usb_cmd_set_gimbal_param(&gimbal->gimbal_pitch_motor.gimbal_motor_absolute_angle_pid, param, value);
+    case USB_PID_TARGET_PITCH_ENCODE:
+        return usb_cmd_set_gimbal_param(&gimbal->gimbal_pitch_motor.gimbal_motor_relative_angle_pid, param, value);
+    case USB_PID_TARGET_YAW_SPEED:
+        return usb_cmd_set_common_param(&gimbal->gimbal_yaw_motor.gimbal_motor_gyro_pid, param, value);
+    case USB_PID_TARGET_YAW_ANGLE:
+        return usb_cmd_set_gimbal_param(&gimbal->gimbal_yaw_motor.gimbal_motor_absolute_angle_pid, param, value);
+    case USB_PID_TARGET_YAW_ENCODE:
+        return usb_cmd_set_gimbal_param(&gimbal->gimbal_yaw_motor.gimbal_motor_relative_angle_pid, param, value);
+    case USB_PID_TARGET_CHASSIS_FOLLOW:
+        return usb_cmd_set_common_param(&chassis->chassis_angle_pid, param, value);
+    case USB_PID_TARGET_CHASSIS_WHEEL:
+        for (i = 0; i < 4u; i++)
+        {
+            if (!usb_cmd_set_common_param(&chassis->motor_speed_pid[i], param, value))
+            {
+                return 0;
+            }
+        }
+        return 1;
+    default:
+        return 0;
+    }
+}
+
+static bool_t usb_cmd_get_gimbal_param(gimbal_PID_t *pid, usb_pid_param_e param, fp32 *value)
+{
+    if ((pid == NULL) || (value == NULL))
+    {
+        return 0;
+    }
+
+    switch (param)
+    {
+    case USB_PID_PARAM_KP:
+        *value = pid->kp;
+        break;
+    case USB_PID_PARAM_KI:
+        *value = pid->ki;
+        break;
+    case USB_PID_PARAM_KD:
+        *value = pid->kd;
+        break;
+    case USB_PID_PARAM_MAX_OUT:
+        *value = pid->max_out;
+        break;
+    case USB_PID_PARAM_MAX_IOUT:
+        *value = pid->max_iout;
+        break;
+    default:
+        return 0;
+    }
+
+    return 1;
+}
+
+static bool_t usb_cmd_get_common_param(pid_type_def *pid, usb_pid_param_e param, fp32 *value)
+{
+    if ((pid == NULL) || (value == NULL))
+    {
+        return 0;
+    }
+
+    switch (param)
+    {
+    case USB_PID_PARAM_KP:
+        *value = pid->Kp;
+        break;
+    case USB_PID_PARAM_KI:
+        *value = pid->Ki;
+        break;
+    case USB_PID_PARAM_KD:
+        *value = pid->Kd;
+        break;
+    case USB_PID_PARAM_MAX_OUT:
+        *value = pid->max_out;
+        break;
+    case USB_PID_PARAM_MAX_IOUT:
+        *value = pid->max_iout;
+        break;
+    default:
+        return 0;
+    }
+
+    return 1;
+}
+
+static bool_t usb_cmd_set_gimbal_param(gimbal_PID_t *pid, usb_pid_param_e param, fp32 value)
+{
+    if (pid == NULL)
+    {
+        return 0;
+    }
+
+    switch (param)
+    {
+    case USB_PID_PARAM_KP:
+        pid->kp = value;
+        break;
+    case USB_PID_PARAM_KI:
+        pid->ki = value;
+        break;
+    case USB_PID_PARAM_KD:
+        pid->kd = value;
+        break;
+    case USB_PID_PARAM_MAX_OUT:
+        pid->max_out = value;
+        break;
+    case USB_PID_PARAM_MAX_IOUT:
+        pid->max_iout = value;
+        break;
+    default:
+        return 0;
+    }
+
+    return 1;
+}
+
+static bool_t usb_cmd_set_common_param(pid_type_def *pid, usb_pid_param_e param, fp32 value)
+{
+    if (pid == NULL)
+    {
+        return 0;
+    }
+
+    switch (param)
+    {
+    case USB_PID_PARAM_KP:
+        pid->Kp = value;
+        break;
+    case USB_PID_PARAM_KI:
+        pid->Ki = value;
+        break;
+    case USB_PID_PARAM_KD:
+        pid->Kd = value;
+        break;
+    case USB_PID_PARAM_MAX_OUT:
+        pid->max_out = value;
+        break;
+    case USB_PID_PARAM_MAX_IOUT:
+        pid->max_iout = value;
+        break;
+    default:
+        return 0;
+    }
+
+    return 1;
+}
+
+static void usb_cmd_replyf(const char *format, ...)
+{
+    char line[USB_CMD_REPLY_MAX_LEN];
+    va_list args;
+    int len;
+
+    if (format == NULL)
+    {
+        return;
+    }
+
+    va_start(args, format);
+    len = vsnprintf(line, sizeof(line), format, args);
+    va_end(args);
+
+    if ((len <= 0) || (len >= (int)sizeof(line)))
+    {
+        return;
+    }
+
+    {
+        uint8_t retry;
+        for (retry = 0; retry < 50u; retry++)
+        {
+            if (CDC_Transmit_FS((uint8_t *)line, (uint16_t)len) == 0)
+            {
+                break;
+            }
+            osDelay(1);
+        }
     }
 }
 

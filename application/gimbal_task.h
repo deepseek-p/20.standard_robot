@@ -66,12 +66,12 @@
 
 //pitch encode angle close-loop PID params, max out and max iout
 //pitch 角度环 角度由编码器 PID参数以及 PID最大输出，积分输出
-#define PITCH_ENCODE_RELATIVE_PID_KP 15.0f
-#define PITCH_ENCODE_RELATIVE_PID_KI 0.00f
+#define PITCH_ENCODE_RELATIVE_PID_KP 24.0f
+#define PITCH_ENCODE_RELATIVE_PID_KI 0.0f
 #define PITCH_ENCODE_RELATIVE_PID_KD 0.0f
 
 #define PITCH_ENCODE_RELATIVE_PID_MAX_OUT 10.0f
-#define PITCH_ENCODE_RELATIVE_PID_MAX_IOUT 0.0f
+#define PITCH_ENCODE_RELATIVE_PID_MAX_IOUT 0.5f
 
 //yaw encode angle close-loop PID params, max out and max iout
 //yaw 角度环 角度由编码器 PID参数以及 PID最大输出，积分输出
@@ -103,7 +103,7 @@
 
 
 #define YAW_RC_SEN    -0.000005f
-#define PITCH_RC_SEN  -0.000004f //0.005
+#define PITCH_RC_SEN  -0.000001f //0.005
 
 #define YAW_MOUSE_SEN   0.00005f
 #define PITCH_MOUSE_SEN 0.00015f
@@ -285,6 +285,7 @@ extern const gimbal_motor_t *get_yaw_motor_point(void);
   * @retval         pitch
   */
 extern const gimbal_motor_t *get_pitch_motor_point(void);
+extern gimbal_control_t *get_gimbal_control_point(void);
 
 extern bool_t get_gimbal_debug_snapshot(gimbal_debug_snapshot_t *snapshot);
 
@@ -347,4 +348,5 @@ extern bool_t cmd_cali_gimbal_hook(uint16_t *yaw_offset, uint16_t *pitch_offset,
   */
 extern void set_cali_gimbal_hook(const uint16_t yaw_offset, const uint16_t pitch_offset, const fp32 max_yaw, const fp32 min_yaw, const fp32 max_pitch, const fp32 min_pitch);
 #endif
+
 

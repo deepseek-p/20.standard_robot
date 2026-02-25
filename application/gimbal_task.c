@@ -718,6 +718,11 @@ const gimbal_motor_t *get_pitch_motor_point(void)
     return &gimbal_control.gimbal_pitch_motor;
 }
 
+gimbal_control_t *get_gimbal_control_point(void)
+{
+    return &gimbal_control;
+}
+
 bool_t get_gimbal_debug_snapshot(gimbal_debug_snapshot_t *snapshot)
 {
     if (snapshot == NULL)
@@ -859,7 +864,44 @@ static void gimbal_feedback_update(gimbal_control_t *feedback_update)
                                                                                           feedback_update->gimbal_pitch_motor.offset_ecd);
 #endif
 
-    feedback_update->gimbal_pitch_motor.motor_gyro = *(feedback_update->gimbal_INT_gyro_point + INS_GYRO_Y_ADDRESS_OFFSET);
+    if (feedback_update->gimbal_pitch_motor.gimbal_motor_mode == GIMBAL_MOTOR_ENCONDE)
+    {
+        // ecd差分计算角速度 + 一阶低通滤波（解决1ms周期量化阶梯）
+        static uint16_t pitch_last_ecd = 0;
+        static uint8_t  pitch_ecd_inited = 0;
+        static fp32     pitch_ecd_speed_filtered = 0.0f;
+        // 滤波系数: alpha越小越平滑, 0.05 ≈ 截止频率~8Hz
+        const fp32 alpha = 0.05f;
+
+        uint16_t cur_ecd = feedback_update->gimbal_pitch_motor.gimbal_motor_measure->ecd;
+        if (!pitch_ecd_inited)
+        {
+            pitch_last_ecd = cur_ecd;
+            pitch_ecd_inited = 1;
+            pitch_ecd_speed_filtered = 0.0f;
+        }
+        else
+        {
+            int32_t diff = (int32_t)cur_ecd - (int32_t)pitch_last_ecd;
+            if (diff > 4096)
+                diff -= 8192;
+            else if (diff < -4096)
+                diff += 8192;
+            pitch_last_ecd = cur_ecd;
+            // diff counts/1ms -> rad/s
+            fp32 raw_speed = (fp32)diff * 0.76699f;
+            pitch_ecd_speed_filtered += alpha * (raw_speed - pitch_ecd_speed_filtered);
+        }
+#if PITCH_TURN
+        feedback_update->gimbal_pitch_motor.motor_gyro = -pitch_ecd_speed_filtered;
+#else
+        feedback_update->gimbal_pitch_motor.motor_gyro = pitch_ecd_speed_filtered;
+#endif
+    }
+    else
+    {
+        feedback_update->gimbal_pitch_motor.motor_gyro = *(feedback_update->gimbal_INT_gyro_point + INS_GYRO_Y_ADDRESS_OFFSET);
+    }
 
     feedback_update->gimbal_yaw_motor.absolute_angle = *(feedback_update->gimbal_INT_angle_point + INS_YAW_ADDRESS_OFFSET);
 

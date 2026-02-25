@@ -227,6 +227,7 @@ extern void chassis_task(void const *pvParameters);
   * @retval         none
   */
 extern void chassis_rc_to_control_vector(fp32 *vx_set, fp32 *vy_set, chassis_move_t *chassis_move_rc_to_vector);
+extern chassis_move_t *get_chassis_control_point(void);
 
 extern bool_t get_chassis_debug_snapshot(chassis_debug_snapshot_t *snapshot);
 

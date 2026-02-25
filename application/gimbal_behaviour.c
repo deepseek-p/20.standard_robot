@@ -318,7 +318,7 @@ void gimbal_behaviour_mode_set(gimbal_control_t *gimbal_mode_set)
     else if (gimbal_behaviour == GIMBAL_ABSOLUTE_ANGLE)
     {
         gimbal_mode_set->gimbal_yaw_motor.gimbal_motor_mode = GIMBAL_MOTOR_GYRO;
-        gimbal_mode_set->gimbal_pitch_motor.gimbal_motor_mode = GIMBAL_MOTOR_GYRO;
+        gimbal_mode_set->gimbal_pitch_motor.gimbal_motor_mode = GIMBAL_MOTOR_ENCONDE;
     }
     else if (gimbal_behaviour == GIMBAL_RELATIVE_ANGLE)
     {

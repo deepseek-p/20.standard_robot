@@ -125,6 +125,11 @@ uint32_t chassis_high_water;
 
 //底盘运动数据
 chassis_move_t chassis_move;
+chassis_move_t *get_chassis_control_point(void)
+{
+    return &chassis_move;
+}
+
 bool_t get_chassis_debug_snapshot(chassis_debug_snapshot_t *snapshot)
 {
     if (snapshot == NULL)
