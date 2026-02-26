@@ -22,6 +22,7 @@
 
 #include "usb_device.h"
 #include "usbd_cdc_if.h"
+#include "usart.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -34,6 +35,7 @@
 #include "remote_control.h"
 #include "gimbal_task.h"
 #include "chassis_task.h"
+#include "wifi_bridge.h"
 
 #define USB_DEBUG_FRAME_MAX_LEN 1024u
 #define USB_DEBUG_RAD_SCALE     1000.0f
@@ -203,6 +205,8 @@ typedef enum
     USB_PID_TARGET_COUNT,
 } usb_pid_target_e;
 
+typedef void (*cmd_reply_fn)(const char *format, ...);
+
 static uint32_t usb_debug_now_ms(void);
 static uint32_t usb_debug_next_seq(void);
 static int32_t usb_debug_fp32_to_milli(fp32 value);
@@ -212,8 +216,8 @@ static int32_t usb_debug_masked_i32(uint16_t bit, int32_t value);
 static int32_t usb_debug_masked_fp32_milli(uint16_t bit, fp32 value);
 static bool_t usb_emit_firewater_frame(uint32_t now_ms);
 static void usb_cmd_process(void);
-static void usb_cmd_process_line(char *line);
-static void usb_cmd_dump_all(void);
+static void usb_cmd_process_line(char *line, cmd_reply_fn reply_fn);
+static void usb_cmd_dump_all(cmd_reply_fn reply_fn);
 static int usb_cmd_stricmp(const char *lhs, const char *rhs);
 static const char *usb_cmd_target_name(usb_pid_target_e target);
 static const char *usb_cmd_param_name(usb_pid_param_e param);
@@ -228,6 +232,11 @@ static bool_t usb_cmd_get_common_param(pid_type_def *pid, usb_pid_param_e param,
 static bool_t usb_cmd_set_gimbal_param(gimbal_PID_t *pid, usb_pid_param_e param, fp32 value);
 static bool_t usb_cmd_set_common_param(pid_type_def *pid, usb_pid_param_e param, fp32 value);
 static void usb_cmd_replyf(const char *format, ...);
+#if WIFI_BRIDGE_ENABLE
+static void wifi_uart1_init(void);
+static void wifi_cmd_process(void);
+static void wifi_cmd_replyf(const char *format, ...);
+#endif
 
 void usb_debug_set_channel_mask(uint16_t channel_mask)
 {
@@ -246,6 +255,9 @@ void usb_task(void const *argument)
     (void)argument;
 
     MX_USB_DEVICE_Init();
+#if WIFI_BRIDGE_ENABLE
+    wifi_uart1_init();
+#endif
     error_list_usb_local = get_error_list_point();
 
     while (1)
@@ -260,6 +272,9 @@ void usb_task(void const *argument)
         }
 #endif
         usb_cmd_process();
+#if WIFI_BRIDGE_ENABLE
+        wifi_cmd_process();
+#endif
 
         osDelay(USB_DEBUG_TASK_PERIOD_MS);
     }
@@ -289,7 +304,7 @@ static void usb_cmd_process(void)
             else if (cmd_len > 0u)
             {
                 cmd_line[cmd_len] = '\0';
-                usb_cmd_process_line(cmd_line);
+                usb_cmd_process_line(cmd_line, usb_cmd_replyf);
             }
 
             cmd_len = 0u;
@@ -313,7 +328,57 @@ static void usb_cmd_process(void)
     }
 }
 
-static void usb_cmd_process_line(char *line)
+#if WIFI_BRIDGE_ENABLE
+static void wifi_cmd_process(void)
+{
+    static char cmd_line[USB_CMD_LINE_MAX_LEN];
+    static uint16_t cmd_len = 0;
+    static uint8_t cmd_overflow = 0;
+
+    while (uart1_rx_available() > 0u)
+    {
+        uint8_t byte = uart1_rx_read_byte();
+
+        if (byte == '\r')
+        {
+            continue;
+        }
+
+        if (byte == '\n')
+        {
+            if (cmd_overflow)
+            {
+                wifi_cmd_replyf("ERR line_too_long\r\n");
+            }
+            else if (cmd_len > 0u)
+            {
+                cmd_line[cmd_len] = '\0';
+                usb_cmd_process_line(cmd_line, wifi_cmd_replyf);
+            }
+
+            cmd_len = 0u;
+            cmd_overflow = 0u;
+            continue;
+        }
+
+        if (cmd_overflow)
+        {
+            continue;
+        }
+
+        if (cmd_len < (USB_CMD_LINE_MAX_LEN - 1u))
+        {
+            cmd_line[cmd_len++] = (char)byte;
+        }
+        else
+        {
+            cmd_overflow = 1u;
+        }
+    }
+}
+#endif
+
+static void usb_cmd_process_line(char *line, cmd_reply_fn reply_fn)
 {
     char *cmd;
     char *target_text;
@@ -324,7 +389,7 @@ static void usb_cmd_process_line(char *line)
     usb_pid_param_e param;
     fp32 value;
 
-    if (line == NULL)
+    if ((line == NULL) || (reply_fn == NULL))
     {
         return;
     }
@@ -343,47 +408,47 @@ static void usb_cmd_process_line(char *line)
         extra = strtok(NULL, " \t");
         if ((target_text == NULL) || (param_text == NULL) || (value_text == NULL) || (extra != NULL))
         {
-            usb_cmd_replyf("ERR format SET\r\n");
+            reply_fn("ERR format SET\r\n");
             return;
         }
 
         if (!usb_cmd_parse_target(target_text, &target))
         {
-            usb_cmd_replyf("ERR target %s\r\n", target_text);
+            reply_fn("ERR target %s\r\n", target_text);
             return;
         }
 
         if (!usb_cmd_parse_param(param_text, &param))
         {
-            usb_cmd_replyf("ERR param %s\r\n", param_text);
+            reply_fn("ERR param %s\r\n", param_text);
             return;
         }
 
         if (!usb_cmd_parse_value(value_text, &value))
         {
-            usb_cmd_replyf("ERR value %s\r\n", value_text);
+            reply_fn("ERR value %s\r\n", value_text);
             return;
         }
 
         if (!usb_cmd_value_in_range(param, value))
         {
-            usb_cmd_replyf("ERR range %s %s %.6f\r\n",
-                           usb_cmd_target_name(target),
-                           usb_cmd_param_name(param),
-                           (double)value);
+            reply_fn("ERR range %s %s %.6f\r\n",
+                     usb_cmd_target_name(target),
+                     usb_cmd_param_name(param),
+                     (double)value);
             return;
         }
 
         if (!usb_cmd_set_target_param(target, param, value))
         {
-            usb_cmd_replyf("ERR target %s\r\n", usb_cmd_target_name(target));
+            reply_fn("ERR target %s\r\n", usb_cmd_target_name(target));
             return;
         }
 
-        usb_cmd_replyf("OK SET %s %s %.6f\r\n",
-                       usb_cmd_target_name(target),
-                       usb_cmd_param_name(param),
-                       (double)value);
+        reply_fn("OK SET %s %s %.6f\r\n",
+                 usb_cmd_target_name(target),
+                 usb_cmd_param_name(param),
+                 (double)value);
         return;
     }
 
@@ -395,32 +460,32 @@ static void usb_cmd_process_line(char *line)
 
         if ((target_text == NULL) || (param_text == NULL) || (extra != NULL))
         {
-            usb_cmd_replyf("ERR format GET\r\n");
+            reply_fn("ERR format GET\r\n");
             return;
         }
 
         if (!usb_cmd_parse_target(target_text, &target))
         {
-            usb_cmd_replyf("ERR target %s\r\n", target_text);
+            reply_fn("ERR target %s\r\n", target_text);
             return;
         }
 
         if (!usb_cmd_parse_param(param_text, &param))
         {
-            usb_cmd_replyf("ERR param %s\r\n", param_text);
+            reply_fn("ERR param %s\r\n", param_text);
             return;
         }
 
         if (!usb_cmd_get_target_param(target, param, &value))
         {
-            usb_cmd_replyf("ERR target %s\r\n", usb_cmd_target_name(target));
+            reply_fn("ERR target %s\r\n", usb_cmd_target_name(target));
             return;
         }
 
-        usb_cmd_replyf("OK GET %s %s %.6f\r\n",
-                       usb_cmd_target_name(target),
-                       usb_cmd_param_name(param),
-                       (double)value);
+        reply_fn("OK GET %s %s %.6f\r\n",
+                 usb_cmd_target_name(target),
+                 usb_cmd_param_name(param),
+                 (double)value);
         return;
     }
 
@@ -429,18 +494,18 @@ static void usb_cmd_process_line(char *line)
         extra = strtok(NULL, " \t");
         if (extra != NULL)
         {
-            usb_cmd_replyf("ERR format DUMP\r\n");
+            reply_fn("ERR format DUMP\r\n");
             return;
         }
 
-        usb_cmd_dump_all();
+        usb_cmd_dump_all(reply_fn);
         return;
     }
 
-    usb_cmd_replyf("ERR cmd %s\r\n", cmd);
+    reply_fn("ERR cmd %s\r\n", cmd);
 }
 
-static void usb_cmd_dump_all(void)
+static void usb_cmd_dump_all(cmd_reply_fn reply_fn)
 {
     usb_pid_target_e target;
     fp32 kp;
@@ -448,6 +513,11 @@ static void usb_cmd_dump_all(void)
     fp32 kd;
     fp32 max_out;
     fp32 max_iout;
+
+    if (reply_fn == NULL)
+    {
+        return;
+    }
 
     for (target = USB_PID_TARGET_PITCH_SPEED; target < USB_PID_TARGET_COUNT; target++)
     {
@@ -457,20 +527,20 @@ static void usb_cmd_dump_all(void)
             !usb_cmd_get_target_param(target, USB_PID_PARAM_MAX_OUT, &max_out) ||
             !usb_cmd_get_target_param(target, USB_PID_PARAM_MAX_IOUT, &max_iout))
         {
-            usb_cmd_replyf("ERR dump %s\r\n", usb_cmd_target_name(target));
+            reply_fn("ERR dump %s\r\n", usb_cmd_target_name(target));
             continue;
         }
 
-        usb_cmd_replyf("DUMP %s Kp=%.6f Ki=%.6f Kd=%.6f max_out=%.6f max_iout=%.6f\r\n",
-                       usb_cmd_target_name(target),
-                       (double)kp,
-                       (double)ki,
-                       (double)kd,
-                       (double)max_out,
-                       (double)max_iout);
+        reply_fn("DUMP %s Kp=%.6f Ki=%.6f Kd=%.6f max_out=%.6f max_iout=%.6f\r\n",
+                 usb_cmd_target_name(target),
+                 (double)kp,
+                 (double)ki,
+                 (double)kd,
+                 (double)max_out,
+                 (double)max_iout);
     }
 
-    usb_cmd_replyf("DUMP END\r\n");
+    reply_fn("DUMP END\r\n");
 }
 
 static int usb_cmd_stricmp(const char *lhs, const char *rhs)
@@ -905,6 +975,41 @@ static void usb_cmd_replyf(const char *format, ...)
     }
 }
 
+#if WIFI_BRIDGE_ENABLE
+static void wifi_cmd_replyf(const char *format, ...)
+{
+    char line[USB_CMD_REPLY_MAX_LEN];
+    va_list args;
+    int len;
+
+    if (format == NULL)
+    {
+        return;
+    }
+
+    va_start(args, format);
+    len = vsnprintf(line, sizeof(line), format, args);
+    va_end(args);
+
+    if ((len <= 0) || (len >= (int)sizeof(line)))
+    {
+        return;
+    }
+
+    HAL_UART_Transmit(&huart1, (uint8_t *)line, (uint16_t)len, 50u);
+}
+
+static void wifi_uart1_init(void)
+{
+    CLEAR_BIT(huart1.Instance->CR3, USART_CR3_DMAR);
+    CLEAR_BIT(huart1.Instance->CR3, USART_CR3_DMAT);
+    __HAL_UART_DISABLE_IT(&huart1, UART_IT_IDLE);
+    __HAL_UART_ENABLE_IT(&huart1, UART_IT_RXNE);
+    HAL_NVIC_SetPriority(USART1_IRQn, 5, 0);
+    HAL_NVIC_EnableIRQ(USART1_IRQn);
+}
+#endif
+
 static uint32_t usb_debug_now_ms(void)
 {
     return osKernelSysTick();
@@ -1109,6 +1214,20 @@ static bool_t usb_emit_firewater_frame(uint32_t now_ms)
         return 0;
     }
 
+#if WIFI_BRIDGE_ENABLE
+    if (CDC_Transmit_FS(usb_buf, (uint16_t)len) != 0)
+    {
+        usb_debug_drop_cnt++;
+    }
+
+    if (HAL_UART_Transmit(&huart1, usb_buf, (uint16_t)len, 100u) != HAL_OK)
+    {
+        usb_debug_drop_cnt++;
+        return 0;
+    }
+
+    return 1;
+#else
     if (CDC_Transmit_FS(usb_buf, (uint16_t)len) == 0)
     {
         return 1;
@@ -1116,4 +1235,5 @@ static bool_t usb_emit_firewater_frame(uint32_t now_ms)
 
     usb_debug_drop_cnt++;
     return 0;
+#endif
 }
