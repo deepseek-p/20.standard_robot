@@ -34,6 +34,9 @@
 #include "remote_control.h"
 #include "gimbal_task.h"
 #include "chassis_task.h"
+#include "shoot.h"
+
+extern shoot_control_t shoot_control;
 
 #define USB_DEBUG_FRAME_MAX_LEN 1024u
 #define USB_DEBUG_RAD_SCALE     1000.0f
@@ -55,116 +58,57 @@
  *  6:pitch_toe     -> pitch motor offline/error flag
  *  7:gyro_toe      -> board gyro offline/error flag
  *  8:accel_toe     -> board accel offline/error flag
- *  9:mag_toe       -> board mag offline/error flag
- * 10:ref_toe       -> referee offline/error flag
+ *  9:ref_toe       -> referee offline/error flag
  *
- * 11:ch_mode       -> chassis mode enum snapshot
- * 12:vx_set        -> chassis vx setpoint (milli-scale)
- * 13:vy_set        -> chassis vy setpoint (milli-scale)
- * 14:wz_set        -> chassis wz setpoint (milli-scale)
- * 15:rel           -> chassis relative angle (milli-scale)
- * 16:rel_set       -> chassis relative angle setpoint (milli-scale)
- * 17:ch_yaw        -> chassis yaw (milli-scale)
- * 18:ch_yaw_set    -> chassis yaw setpoint (milli-scale)
- * 19:i1            -> wheel current set[0]
- * 20:i2            -> wheel current set[1]
- * 21:i3            -> wheel current set[2]
- * 22:i4            -> wheel current set[3]
+ * 10:ch_mode       -> chassis mode enum snapshot
+ * 11:vx_set        -> chassis vx setpoint (milli-scale)
+ * 12:vy_set        -> chassis vy setpoint (milli-scale)
+ * 13:wz_set        -> chassis wz setpoint (milli-scale)
+ * 14:rel           -> chassis relative angle (milli-scale)
+ * 15:rel_set       -> chassis relative angle setpoint (milli-scale)
+ * 16:ch_yaw        -> chassis yaw (milli-scale)
+ * 17:ch_yaw_set    -> chassis yaw setpoint (milli-scale)
+ * 18:i1            -> wheel current set[0]
+ * 19:i2            -> wheel current set[1]
+ * 20:i3            -> wheel current set[2]
+ * 21:i4            -> wheel current set[3]
  *
- * 23:yaw_mode      -> gimbal yaw mode enum
- * 24:pitch_mode    -> gimbal pitch mode enum
- * 25:cali_step     -> gimbal calibration step
- * 26:yaw_abs       -> gimbal yaw absolute angle (milli-scale)
- * 27:yaw_abs_set   -> gimbal yaw absolute setpoint (milli-scale)
- * 28:yaw_rel       -> gimbal yaw relative angle (milli-scale)
- * 29:yaw_rel_set   -> gimbal yaw relative setpoint (milli-scale)
- * 30:yaw_gyro      -> gimbal yaw gyro feedback (milli-scale)
- * 31:yaw_gyro_set  -> gimbal yaw gyro setpoint (milli-scale)
- * 32:yaw_cur       -> gimbal yaw given current
- * 33:pitch_abs     -> gimbal pitch absolute angle (milli-scale)
- * 34:pitch_abs_set -> gimbal pitch absolute setpoint (milli-scale)
- * 35:pitch_rel     -> gimbal pitch relative angle (milli-scale)
- * 36:pitch_rel_set -> gimbal pitch relative setpoint (milli-scale)
- * 37:pitch_gyro    -> gimbal pitch gyro feedback (milli-scale)
- * 38:pitch_gyro_set-> gimbal pitch gyro setpoint (milli-scale)
- * 39:pitch_cur     -> gimbal pitch given current
+ * 22:yaw_mode      -> gimbal yaw mode enum
+ * 23:pitch_mode    -> gimbal pitch mode enum
+ * 24:cali_step     -> gimbal calibration step
+ * 25:yaw_abs       -> gimbal yaw absolute angle (milli-scale)
+ * 26:yaw_abs_set   -> gimbal yaw absolute setpoint (milli-scale)
+ * 27:yaw_rel       -> gimbal yaw relative angle (milli-scale)
+ * 28:yaw_rel_set   -> gimbal yaw relative setpoint (milli-scale)
+ * 29:yaw_gyro      -> gimbal yaw gyro feedback (milli-scale)
+ * 30:yaw_gyro_set  -> gimbal yaw gyro setpoint (milli-scale)
+ * 31:yaw_cur       -> gimbal yaw given current
+ * 32:pitch_rel     -> gimbal pitch relative angle (milli-scale)
+ * 33:pitch_rel_set -> gimbal pitch relative setpoint (milli-scale)
+ * 34:pitch_cur     -> gimbal pitch given current
  *
- * 40:rc_ch0        -> RC channel 0
- * 41:rc_ch1        -> RC channel 1
- * 42:rc_ch2        -> RC channel 2
- * 43:rc_ch3        -> RC channel 3
- * 44:rc_s0         -> RC switch s0
- * 45:rc_s1         -> RC switch s1
- * 46:mouse_x       -> mouse x
- * 47:mouse_y       -> mouse y
- * 48:key_v         -> keyboard bitmask
+ * 35:rc_ch0        -> RC channel 0
+ * 36:rc_ch1        -> RC channel 1
+ * 37:rc_ch2        -> RC channel 2
+ * 38:rc_ch3        -> RC channel 3
+ * 39:rc_s0         -> RC switch s0
+ * 40:rc_s1         -> RC switch s1
+ * 41:mouse_x       -> mouse x
+ * 42:mouse_y       -> mouse y
+ * 43:key_v         -> keyboard bitmask
  *
- * 49:event_bits    -> event bitmap
- *                     bit0:dbus_toe change, bit1:yaw_toe change, bit2:pitch_toe change
- *                     bit3:ch_mode change, bit4:yaw_mode change, bit5:pitch_mode change
- *                     bit6:chassis snapshot invalid, bit7:gimbal snapshot invalid
- * 50:gimbal_ok     -> gimbal snapshot valid flag
- * 51:chassis_ok    -> chassis snapshot valid flag
+ * 44:event_bits    -> event bitmap
+ * 45:gimbal_ok     -> gimbal snapshot valid flag
+ * 46:chassis_ok    -> chassis snapshot valid flag
  *
- * Masked-off channels output USB_DEBUG_INVALID_INT.
- *
- * 中文释义（按列号）:
- *  0 tick_ms: 系统tick时间戳（毫秒）
- *  1 seq: 遥测帧序号
- *  2 drop: USB发送丢帧计数
- *  3 bat_pct: 电池电量百分比
- *  4 dbus_toe: 遥控DBUS离线/错误标志
- *  5 yaw_toe: 云台yaw电机离线/错误标志
- *  6 pitch_toe: 云台pitch电机离线/错误标志
- *  7 gyro_toe: 板载陀螺仪离线/错误标志
- *  8 accel_toe: 板载加速度计离线/错误标志
- *  9 mag_toe: 板载磁力计离线/错误标志
- * 10 ref_toe: 裁判系统离线/错误标志
- *
- * 11 ch_mode: 底盘模式枚举快照
- * 12 vx_set: 底盘x向速度设定（milli缩放）
- * 13 vy_set: 底盘y向速度设定（milli缩放）
- * 14 wz_set: 底盘旋转速度设定（milli缩放）
- * 15 rel: 底盘-云台相对角（milli缩放）
- * 16 rel_set: 底盘-云台相对角目标（milli缩放）
- * 17 ch_yaw: 底盘yaw角（milli缩放）
- * 18 ch_yaw_set: 底盘yaw目标（milli缩放）
- * 19 i1: 底盘轮1电流设定
- * 20 i2: 底盘轮2电流设定
- * 21 i3: 底盘轮3电流设定
- * 22 i4: 底盘轮4电流设定
- *
- * 23 yaw_mode: 云台yaw控制模式枚举
- * 24 pitch_mode: 云台pitch控制模式枚举
- * 25 cali_step: 云台校准步骤
- * 26 yaw_abs: 云台yaw绝对角（milli缩放）
- * 27 yaw_abs_set: 云台yaw绝对角目标（milli缩放）
- * 28 yaw_rel: 云台yaw相对角（milli缩放）
- * 29 yaw_rel_set: 云台yaw相对角目标（milli缩放）
- * 30 yaw_gyro: 云台yaw角速度反馈（milli缩放）
- * 31 yaw_gyro_set: 云台yaw角速度目标（milli缩放）
- * 32 yaw_cur: 云台yaw给定电流
- * 33 pitch_abs: 云台pitch绝对角（milli缩放）
- * 34 pitch_abs_set: 云台pitch绝对角目标（milli缩放）
- * 35 pitch_rel: 云台pitch相对角（milli缩放）
- * 36 pitch_rel_set: 云台pitch相对角目标（milli缩放）
- * 37 pitch_gyro: 云台pitch角速度反馈（milli缩放）
- * 38 pitch_gyro_set: 云台pitch角速度目标（milli缩放）
- * 39 pitch_cur: 云台pitch给定电流
- *
- * 40 rc_ch0: 遥控通道0
- * 41 rc_ch1: 遥控通道1
- * 42 rc_ch2: 遥控通道2
- * 43 rc_ch3: 遥控通道3
- * 44 rc_s0: 遥控拨杆s0
- * 45 rc_s1: 遥控拨杆s1
- * 46 mouse_x: 鼠标x
- * 47 mouse_y: 鼠标y
- * 48 key_v: 键盘按键位图
- *
- * 49 event_bits: 事件位图
- * 50 gimbal_ok: 云台快照有效标志（1有效/0无效）
- * 51 chassis_ok: 底盘快照有效标志（1有效/0无效）
+ * 47:shoot_mode    -> shoot mode enum
+ * 48:high_freq     -> high frequency flag
+ * 49:fric1_rpm     -> friction wheel 1 actual RPM
+ * 50:fric2_rpm     -> friction wheel 2 actual RPM
+ * 51:fric_set      -> friction wheel target speed (milli-scale)
+ * 52:fric1_cur     -> friction wheel 1 given current
+ * 53:fric2_cur     -> friction wheel 2 given current
+ * 54:trigger_cur   -> trigger motor given current
  */
 
 static uint8_t usb_buf[USB_DEBUG_FRAME_MAX_LEN];
@@ -200,6 +144,8 @@ typedef enum
     USB_PID_TARGET_YAW_ENCODE,
     USB_PID_TARGET_CHASSIS_FOLLOW,
     USB_PID_TARGET_CHASSIS_WHEEL,
+    USB_PID_TARGET_FRIC_SPEED,
+    USB_PID_TARGET_TRIGGER,
     USB_PID_TARGET_COUNT,
 } usb_pid_target_e;
 
@@ -518,6 +464,10 @@ static const char *usb_cmd_target_name(usb_pid_target_e target)
         return "chassis_follow";
     case USB_PID_TARGET_CHASSIS_WHEEL:
         return "chassis_wheel";
+    case USB_PID_TARGET_FRIC_SPEED:
+        return "fric_speed";
+    case USB_PID_TARGET_TRIGGER:
+        return "trigger";
     default:
         return "unknown";
     }
@@ -580,6 +530,14 @@ static bool_t usb_cmd_parse_target(const char *text, usb_pid_target_e *target)
     else if (usb_cmd_stricmp(text, "chassis_wheel") == 0)
     {
         *target = USB_PID_TARGET_CHASSIS_WHEEL;
+    }
+    else if (usb_cmd_stricmp(text, "fric_speed") == 0)
+    {
+        *target = USB_PID_TARGET_FRIC_SPEED;
+    }
+    else if (usb_cmd_stricmp(text, "trigger") == 0)
+    {
+        *target = USB_PID_TARGET_TRIGGER;
     }
     else
     {
@@ -700,6 +658,10 @@ static bool_t usb_cmd_get_target_param(usb_pid_target_e target, usb_pid_param_e 
         return usb_cmd_get_common_param(&chassis->chassis_angle_pid, param, value);
     case USB_PID_TARGET_CHASSIS_WHEEL:
         return usb_cmd_get_common_param(&chassis->motor_speed_pid[0], param, value);
+    case USB_PID_TARGET_FRIC_SPEED:
+        return usb_cmd_get_common_param(&shoot_control.fric1_pid, param, value);
+    case USB_PID_TARGET_TRIGGER:
+        return usb_cmd_get_common_param(&shoot_control.trigger_motor_pid, param, value);
     default:
         return 0;
     }
@@ -743,6 +705,14 @@ static bool_t usb_cmd_set_target_param(usb_pid_target_e target, usb_pid_param_e 
             }
         }
         return 1;
+    case USB_PID_TARGET_FRIC_SPEED:
+        if (!usb_cmd_set_common_param(&shoot_control.fric1_pid, param, value))
+        {
+            return 0;
+        }
+        return usb_cmd_set_common_param(&shoot_control.fric2_pid, param, value);
+    case USB_PID_TARGET_TRIGGER:
+        return usb_cmd_set_common_param(&shoot_control.trigger_motor_pid, param, value);
     default:
         return 0;
     }
@@ -966,7 +936,6 @@ static bool_t usb_emit_firewater_frame(uint32_t now_ms)
     uint8_t pitch_error;
     uint8_t gyro_error;
     uint8_t accel_error;
-    uint8_t mag_error;
     uint8_t referee_error;
     uint8_t gimbal_ok;
     uint8_t chassis_ok;
@@ -980,7 +949,6 @@ static bool_t usb_emit_firewater_frame(uint32_t now_ms)
     pitch_error = error_list_usb_local[PITCH_GIMBAL_MOTOR_TOE].error_exist;
     gyro_error = error_list_usb_local[BOARD_GYRO_TOE].error_exist;
     accel_error = error_list_usb_local[BOARD_ACCEL_TOE].error_exist;
-    mag_error = error_list_usb_local[BOARD_MAG_TOE].error_exist;
     referee_error = error_list_usb_local[REFEREE_TOE].error_exist;
 
     gimbal_ok = get_gimbal_debug_snapshot(&gimbal_snapshot);
@@ -1044,7 +1012,7 @@ static bool_t usb_emit_firewater_frame(uint32_t now_ms)
     seq = usb_debug_next_seq();
 
     len = snprintf((char *)usb_buf, USB_DEBUG_FRAME_MAX_LEN,
-                   "%lu,%lu,%lu,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld\r\n",
+                   "%lu,%lu,%lu,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld\r\n",
                    now_ms,
                    seq,
                    usb_debug_drop_cnt,
@@ -1054,12 +1022,11 @@ static bool_t usb_emit_firewater_frame(uint32_t now_ms)
                    usb_debug_masked_u8(USB_DBG_CH_HEALTH, pitch_error),
                    usb_debug_masked_u8(USB_DBG_CH_HEALTH, gyro_error),
                    usb_debug_masked_u8(USB_DBG_CH_HEALTH, accel_error),
-                   usb_debug_masked_u8(USB_DBG_CH_HEALTH, mag_error),
-                   usb_debug_masked_u8(USB_DBG_CH_HEALTH, referee_error),
-                   usb_debug_masked_i32(USB_DBG_CH_CHASSIS, chassis_ok ? (int32_t)chassis_snapshot.mode : USB_DEBUG_INVALID_INT),
-                   usb_debug_masked_fp32_milli(USB_DBG_CH_CHASSIS, chassis_ok ? chassis_snapshot.vx_set : (fp32)0.0f),
-                   usb_debug_masked_fp32_milli(USB_DBG_CH_CHASSIS, chassis_ok ? chassis_snapshot.vy_set : (fp32)0.0f),
-                   usb_debug_masked_fp32_milli(USB_DBG_CH_CHASSIS, chassis_ok ? chassis_snapshot.wz_set : (fp32)0.0f),
+                    usb_debug_masked_u8(USB_DBG_CH_HEALTH, referee_error),
+                    usb_debug_masked_i32(USB_DBG_CH_CHASSIS, chassis_ok ? (int32_t)chassis_snapshot.mode : USB_DEBUG_INVALID_INT),
+                    usb_debug_masked_fp32_milli(USB_DBG_CH_CHASSIS, chassis_ok ? chassis_snapshot.vx_set : (fp32)0.0f),
+                    usb_debug_masked_fp32_milli(USB_DBG_CH_CHASSIS, chassis_ok ? chassis_snapshot.vy_set : (fp32)0.0f),
+                    usb_debug_masked_fp32_milli(USB_DBG_CH_CHASSIS, chassis_ok ? chassis_snapshot.wz_set : (fp32)0.0f),
                    usb_debug_masked_fp32_milli(USB_DBG_CH_CHASSIS, chassis_ok ? chassis_snapshot.chassis_relative_angle : (fp32)0.0f),
                    usb_debug_masked_fp32_milli(USB_DBG_CH_CHASSIS, chassis_ok ? chassis_snapshot.chassis_relative_angle_set : (fp32)0.0f),
                    usb_debug_masked_fp32_milli(USB_DBG_CH_CHASSIS, chassis_ok ? chassis_snapshot.chassis_yaw : (fp32)0.0f),
@@ -1074,29 +1041,33 @@ static bool_t usb_emit_firewater_frame(uint32_t now_ms)
                    usb_debug_masked_fp32_milli(USB_DBG_CH_GIMBAL, gimbal_ok ? gimbal_snapshot.yaw_absolute : (fp32)0.0f),
                    usb_debug_masked_fp32_milli(USB_DBG_CH_GIMBAL, gimbal_ok ? gimbal_snapshot.yaw_absolute_set : (fp32)0.0f),
                    usb_debug_masked_fp32_milli(USB_DBG_CH_GIMBAL, gimbal_ok ? gimbal_snapshot.yaw_relative : (fp32)0.0f),
-                   usb_debug_masked_fp32_milli(USB_DBG_CH_GIMBAL, gimbal_ok ? gimbal_snapshot.yaw_relative_set : (fp32)0.0f),
-                   usb_debug_masked_fp32_milli(USB_DBG_CH_GIMBAL, gimbal_ok ? gimbal_snapshot.yaw_gyro : (fp32)0.0f),
-                   usb_debug_masked_fp32_milli(USB_DBG_CH_GIMBAL, gimbal_ok ? gimbal_snapshot.yaw_gyro_set : (fp32)0.0f),
-                   usb_debug_masked_i16(USB_DBG_CH_GIMBAL, gimbal_ok ? gimbal_snapshot.yaw_given_current : (int16_t)0),
-                   usb_debug_masked_fp32_milli(USB_DBG_CH_GIMBAL, gimbal_ok ? gimbal_snapshot.pitch_absolute : (fp32)0.0f),
-                   usb_debug_masked_fp32_milli(USB_DBG_CH_GIMBAL, gimbal_ok ? gimbal_snapshot.pitch_absolute_set : (fp32)0.0f),
-                   usb_debug_masked_fp32_milli(USB_DBG_CH_GIMBAL, gimbal_ok ? gimbal_snapshot.pitch_relative : (fp32)0.0f),
-                   usb_debug_masked_fp32_milli(USB_DBG_CH_GIMBAL, gimbal_ok ? gimbal_snapshot.pitch_relative_set : (fp32)0.0f),
-                   usb_debug_masked_fp32_milli(USB_DBG_CH_GIMBAL, gimbal_ok ? gimbal_snapshot.pitch_gyro : (fp32)0.0f),
-                   usb_debug_masked_fp32_milli(USB_DBG_CH_GIMBAL, gimbal_ok ? gimbal_snapshot.pitch_gyro_set : (fp32)0.0f),
-                   usb_debug_masked_i16(USB_DBG_CH_GIMBAL, gimbal_ok ? gimbal_snapshot.pitch_given_current : (int16_t)0),
-                   usb_debug_masked_i32(USB_DBG_CH_RC, rc_ctrl != NULL ? (int32_t)rc_ctrl->rc.ch[0] : USB_DEBUG_INVALID_INT),
-                   usb_debug_masked_i32(USB_DBG_CH_RC, rc_ctrl != NULL ? (int32_t)rc_ctrl->rc.ch[1] : USB_DEBUG_INVALID_INT),
-                   usb_debug_masked_i32(USB_DBG_CH_RC, rc_ctrl != NULL ? (int32_t)rc_ctrl->rc.ch[2] : USB_DEBUG_INVALID_INT),
+                    usb_debug_masked_fp32_milli(USB_DBG_CH_GIMBAL, gimbal_ok ? gimbal_snapshot.yaw_relative_set : (fp32)0.0f),
+                    usb_debug_masked_fp32_milli(USB_DBG_CH_GIMBAL, gimbal_ok ? gimbal_snapshot.yaw_gyro : (fp32)0.0f),
+                    usb_debug_masked_fp32_milli(USB_DBG_CH_GIMBAL, gimbal_ok ? gimbal_snapshot.yaw_gyro_set : (fp32)0.0f),
+                    usb_debug_masked_i16(USB_DBG_CH_GIMBAL, gimbal_ok ? gimbal_snapshot.yaw_given_current : (int16_t)0),
+                    usb_debug_masked_fp32_milli(USB_DBG_CH_GIMBAL, gimbal_ok ? gimbal_snapshot.pitch_relative : (fp32)0.0f),
+                    usb_debug_masked_fp32_milli(USB_DBG_CH_GIMBAL, gimbal_ok ? gimbal_snapshot.pitch_relative_set : (fp32)0.0f),
+                    usb_debug_masked_i16(USB_DBG_CH_GIMBAL, gimbal_ok ? gimbal_snapshot.pitch_given_current : (int16_t)0),
+                    usb_debug_masked_i32(USB_DBG_CH_RC, rc_ctrl != NULL ? (int32_t)rc_ctrl->rc.ch[0] : USB_DEBUG_INVALID_INT),
+                    usb_debug_masked_i32(USB_DBG_CH_RC, rc_ctrl != NULL ? (int32_t)rc_ctrl->rc.ch[1] : USB_DEBUG_INVALID_INT),
+                    usb_debug_masked_i32(USB_DBG_CH_RC, rc_ctrl != NULL ? (int32_t)rc_ctrl->rc.ch[2] : USB_DEBUG_INVALID_INT),
                    usb_debug_masked_i32(USB_DBG_CH_RC, rc_ctrl != NULL ? (int32_t)rc_ctrl->rc.ch[3] : USB_DEBUG_INVALID_INT),
                    usb_debug_masked_i32(USB_DBG_CH_RC, rc_ctrl != NULL ? (int32_t)rc_ctrl->rc.s[0] : USB_DEBUG_INVALID_INT),
                    usb_debug_masked_i32(USB_DBG_CH_RC, rc_ctrl != NULL ? (int32_t)rc_ctrl->rc.s[1] : USB_DEBUG_INVALID_INT),
-                   usb_debug_masked_i32(USB_DBG_CH_RC, rc_ctrl != NULL ? (int32_t)rc_ctrl->mouse.x : USB_DEBUG_INVALID_INT),
-                   usb_debug_masked_i32(USB_DBG_CH_RC, rc_ctrl != NULL ? (int32_t)rc_ctrl->mouse.y : USB_DEBUG_INVALID_INT),
-                   usb_debug_masked_i32(USB_DBG_CH_RC, rc_ctrl != NULL ? (int32_t)rc_ctrl->key.v : USB_DEBUG_INVALID_INT),
-                   usb_debug_masked_i32(USB_DBG_CH_EVENT, (int32_t)event_bits),
-                   usb_debug_masked_i32(USB_DBG_CH_EVENT, (int32_t)gimbal_ok),
-                   usb_debug_masked_i32(USB_DBG_CH_EVENT, (int32_t)chassis_ok));
+                    usb_debug_masked_i32(USB_DBG_CH_RC, rc_ctrl != NULL ? (int32_t)rc_ctrl->mouse.x : USB_DEBUG_INVALID_INT),
+                    usb_debug_masked_i32(USB_DBG_CH_RC, rc_ctrl != NULL ? (int32_t)rc_ctrl->mouse.y : USB_DEBUG_INVALID_INT),
+                    usb_debug_masked_i32(USB_DBG_CH_RC, rc_ctrl != NULL ? (int32_t)rc_ctrl->key.v : USB_DEBUG_INVALID_INT),
+                    usb_debug_masked_i32(USB_DBG_CH_EVENT, (int32_t)event_bits),
+                    usb_debug_masked_i32(USB_DBG_CH_EVENT, (int32_t)gimbal_ok),
+                    usb_debug_masked_i32(USB_DBG_CH_EVENT, (int32_t)chassis_ok),
+                    usb_debug_masked_i32(USB_DBG_CH_SHOOT, (int32_t)shoot_control.shoot_mode),
+                    usb_debug_masked_i32(USB_DBG_CH_SHOOT, (int32_t)shoot_control.high_freq_flag),
+                    usb_debug_masked_i32(USB_DBG_CH_SHOOT, (int32_t)shoot_control.fric1_motor_measure->speed_rpm),
+                    usb_debug_masked_i32(USB_DBG_CH_SHOOT, (int32_t)shoot_control.fric2_motor_measure->speed_rpm),
+                    usb_debug_masked_fp32_milli(USB_DBG_CH_SHOOT, shoot_control.fric_speed_set),
+                    usb_debug_masked_i32(USB_DBG_CH_SHOOT, (int32_t)shoot_control.fric1_given_current),
+                    usb_debug_masked_i32(USB_DBG_CH_SHOOT, (int32_t)shoot_control.fric2_given_current),
+                    usb_debug_masked_i32(USB_DBG_CH_SHOOT, (int32_t)shoot_control.given_current));
 
     if (len <= 0)
     {

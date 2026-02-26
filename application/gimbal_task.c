@@ -410,12 +410,16 @@ void gimbal_task(void const *pvParameters)
 
     while (1)
     {
+        int16_t fric1_current = 0;
+        int16_t fric2_current = 0;
+
         gimbal_set_mode(&gimbal_control);                    //设置云台控制模式
         gimbal_mode_change_control_transit(&gimbal_control); //控制模式切换 控制数据过渡
         gimbal_feedback_update(&gimbal_control);             //云台数据反馈
         gimbal_set_control(&gimbal_control);                 //设置云台控制量
         gimbal_control_loop(&gimbal_control);                //云台控制PID计算
         shoot_can_set_current = shoot_control_loop();        //射击任务控制循环
+        shoot_get_fric_current(&fric1_current, &fric2_current);
 #if YAW_TURN
         yaw_can_set_current = -gimbal_control.gimbal_yaw_motor.given_current;
 #else
@@ -428,16 +432,15 @@ void gimbal_task(void const *pvParameters)
         pitch_can_set_current = gimbal_control.gimbal_pitch_motor.given_current;
 #endif
 
-        if (!(toe_is_error(YAW_GIMBAL_MOTOR_TOE) && toe_is_error(PITCH_GIMBAL_MOTOR_TOE) && toe_is_error(TRIGGER_MOTOR_TOE)))
+        if (toe_is_error(DBUS_TOE) || toe_is_error(YAW_GIMBAL_MOTOR_TOE) || toe_is_error(PITCH_GIMBAL_MOTOR_TOE) || toe_is_error(TRIGGER_MOTOR_TOE))
         {
-            if (toe_is_error(DBUS_TOE))
-            {
-                CAN_cmd_gimbal(0, 0, 0, 0);
-            }
-            else
-            {
-                CAN_cmd_gimbal(yaw_can_set_current, pitch_can_set_current, shoot_can_set_current, 0);
-            }
+            CAN_cmd_gimbal(0, 0, 0, 0);
+            CAN_cmd_fric(0, 0);
+        }
+        else
+        {
+            CAN_cmd_gimbal(yaw_can_set_current, pitch_can_set_current, shoot_can_set_current, 0);
+            CAN_cmd_fric(fric1_current, fric2_current);
         }
 
 #if GIMBAL_TEST_MODE

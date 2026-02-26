@@ -39,6 +39,9 @@ typedef enum
     CAN_PIT_MOTOR_ID = 0x206,
     CAN_TRIGGER_MOTOR_ID = 0x207,
     CAN_GIMBAL_ALL_ID = 0x1FF,
+    CAN_FRIC_ALL_ID = 0x200,
+    CAN_FRIC1_MOTOR_ID = 0x201,
+    CAN_FRIC2_MOTOR_ID = 0x202,
 
 } can_msg_id_e;
 
@@ -148,6 +151,9 @@ extern const motor_measure_t *get_trigger_motor_measure_point(void);
   * @retval         电机数据指针
   */
 extern const motor_measure_t *get_chassis_motor_measure_point(uint8_t i);
+extern void CAN_cmd_fric(int16_t fric1, int16_t fric2);
+extern const motor_measure_t *get_fric1_motor_measure_point(void);
+extern const motor_measure_t *get_fric2_motor_measure_point(void);
 
 
 #endif

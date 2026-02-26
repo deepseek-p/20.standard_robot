@@ -69,6 +69,8 @@ enum errorList
     YAW_GIMBAL_MOTOR_TOE,
     PITCH_GIMBAL_MOTOR_TOE,
     TRIGGER_MOTOR_TOE,
+    FRIC1_MOTOR_TOE,        // 摩擦轮电机1 (CAN2 ID 0x201)
+    FRIC2_MOTOR_TOE,        // 摩擦轮电机2 (CAN2 ID 0x202)
     BOARD_GYRO_TOE,
     BOARD_ACCEL_TOE,
     BOARD_MAG_TOE,

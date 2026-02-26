@@ -45,11 +45,14 @@ motor data,  0:chassis motor1 3508;1:chassis motor3 3508;2:chassis motor3 3508;3
 电机数据, 0:底盘电机1 3508电机,  1:底盘电机2 3508电机,2:底盘电机3 3508电机,3:底盘电机4 3508电机;
 4:yaw云台电机 6020电机; 5:pitch云台电机 6020电机; 6:拨弹电机 2006电机*/
 static motor_measure_t motor_chassis[7];
+static motor_measure_t motor_fric[2];
 
 static CAN_TxHeaderTypeDef  gimbal_tx_message;
 static uint8_t              gimbal_can_send_data[8];
 static CAN_TxHeaderTypeDef  chassis_tx_message;
 static uint8_t              chassis_can_send_data[8];
+static CAN_TxHeaderTypeDef  fric_tx_message;
+static uint8_t              fric_can_send_data[8];
 
 /**
   * @brief          hal CAN fifo call back, receive motor data
@@ -65,34 +68,66 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 {
     CAN_RxHeaderTypeDef rx_header;
     uint8_t rx_data[8];
+    uint8_t i;
 
     HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &rx_header, rx_data);
 
-    switch (rx_header.StdId)
+    if (hcan == &hcan1)
     {
-        case CAN_3508_M1_ID:
-        case CAN_3508_M2_ID:
-        case CAN_3508_M3_ID:
-        case CAN_3508_M4_ID:
-        case CAN_YAW_MOTOR_ID:
-        case CAN_PIT_MOTOR_ID:
-        case CAN_TRIGGER_MOTOR_ID:
+        switch (rx_header.StdId)
         {
-            static uint8_t i = 0;
-            //get motor id
-            i = rx_header.StdId - CAN_3508_M1_ID;
-            get_motor_measure(&motor_chassis[i], rx_data);
-            detect_hook(CHASSIS_MOTOR1_TOE + i);
-            break;
-        }
+            case CAN_3508_M1_ID:
+            case CAN_3508_M2_ID:
+            case CAN_3508_M3_ID:
+            case CAN_3508_M4_ID:
+            {
+                i = rx_header.StdId - CAN_3508_M1_ID;
+                get_motor_measure(&motor_chassis[i], rx_data);
+                detect_hook(CHASSIS_MOTOR1_TOE + i);
+                break;
+            }
 
-        default:
+            default:
+            {
+                break;
+            }
+        }
+    }
+    else if (hcan == &hcan2)
+    {
+        switch (rx_header.StdId)
         {
-            break;
+            case CAN_YAW_MOTOR_ID:
+            case CAN_PIT_MOTOR_ID:
+            case CAN_TRIGGER_MOTOR_ID:
+            {
+                i = rx_header.StdId - CAN_3508_M1_ID;
+                get_motor_measure(&motor_chassis[i], rx_data);
+                detect_hook(CHASSIS_MOTOR1_TOE + i);
+                break;
+            }
+
+            case CAN_FRIC1_MOTOR_ID:
+            {
+                get_motor_measure(&motor_fric[0], rx_data);
+                detect_hook(FRIC1_MOTOR_TOE);
+                break;
+            }
+
+            case CAN_FRIC2_MOTOR_ID:
+            {
+                get_motor_measure(&motor_fric[1], rx_data);
+                detect_hook(FRIC2_MOTOR_TOE);
+                break;
+            }
+
+            default:
+            {
+                break;
+            }
         }
     }
 }
-
 
 
 /**
@@ -194,6 +229,25 @@ void CAN_cmd_chassis(int16_t motor1, int16_t motor2, int16_t motor3, int16_t mot
     HAL_CAN_AddTxMessage(&CHASSIS_CAN, &chassis_tx_message, chassis_can_send_data, &send_mail_box);
 }
 
+void CAN_cmd_fric(int16_t fric1, int16_t fric2)
+{
+    uint32_t send_mail_box;
+    fric_tx_message.StdId = CAN_FRIC_ALL_ID;
+    fric_tx_message.IDE = CAN_ID_STD;
+    fric_tx_message.RTR = CAN_RTR_DATA;
+    fric_tx_message.DLC = 0x08;
+    fric_can_send_data[0] = (fric1 >> 8);
+    fric_can_send_data[1] = fric1;
+    fric_can_send_data[2] = (fric2 >> 8);
+    fric_can_send_data[3] = fric2;
+    fric_can_send_data[4] = 0;
+    fric_can_send_data[5] = 0;
+    fric_can_send_data[6] = 0;
+    fric_can_send_data[7] = 0;
+
+    HAL_CAN_AddTxMessage(&GIMBAL_CAN, &fric_tx_message, fric_can_send_data, &send_mail_box);
+}
+
 /**
   * @brief          return the yaw 6020 motor data point
   * @param[in]      none
@@ -238,6 +292,16 @@ const motor_measure_t *get_pitch_gimbal_motor_measure_point(void)
 const motor_measure_t *get_trigger_motor_measure_point(void)
 {
     return &motor_chassis[6];
+}
+
+const motor_measure_t *get_fric1_motor_measure_point(void)
+{
+    return &motor_fric[0];
+}
+
+const motor_measure_t *get_fric2_motor_measure_point(void)
+{
+    return &motor_fric[1];
 }
 
 

@@ -2,7 +2,7 @@
   ****************************(C) COPYRIGHT 2019 DJI****************************
   * @file       shoot.c/h
   * @brief      射击功能.
-  * @note       
+  * @note
   * @history
   *  Version    Date            Author          Modification
   *  V1.0.0     Dec-26-2018     RM              1. 完成
@@ -21,7 +21,6 @@
 #include "cmsis_os.h"
 
 #include "bsp_laser.h"
-#include "bsp_fric.h"
 #include "arm_math.h"
 #include "user_lib.h"
 #include "referee.h"
@@ -30,10 +29,6 @@
 #include "gimbal_behaviour.h"
 #include "detect_task.h"
 #include "pid.h"
-
-#define shoot_fric1_on(pwm) fric1_on((pwm)) //摩擦轮1pwm宏定义
-#define shoot_fric2_on(pwm) fric2_on((pwm)) //摩擦轮2pwm宏定义
-#define shoot_fric_off()    fric_off()      //关闭两个摩擦轮
 
 #define shoot_laser_on()    laser_on()      //激光开启宏定义
 #define shoot_laser_off()   laser_off()     //激光关闭宏定义
@@ -84,19 +79,22 @@ void shoot_init(void)
 {
 
     static const fp32 Trigger_speed_pid[3] = {TRIGGER_ANGLE_PID_KP, TRIGGER_ANGLE_PID_KI, TRIGGER_ANGLE_PID_KD};
+    static const fp32 fric_speed_pid[3] = {FRIC_SPEED_PID_KP, FRIC_SPEED_PID_KI, FRIC_SPEED_PID_KD};
+
     shoot_control.shoot_mode = SHOOT_STOP;
     //遥控器指针
     shoot_control.shoot_rc = get_remote_control_point();
     //电机指针
     shoot_control.shoot_motor_measure = get_trigger_motor_measure_point();
+    shoot_control.fric1_motor_measure = get_fric1_motor_measure_point();
+    shoot_control.fric2_motor_measure = get_fric2_motor_measure_point();
     //初始化PID
     PID_init(&shoot_control.trigger_motor_pid, PID_POSITION, Trigger_speed_pid, TRIGGER_READY_PID_MAX_OUT, TRIGGER_READY_PID_MAX_IOUT);
+    PID_init(&shoot_control.fric1_pid, PID_POSITION, fric_speed_pid, FRIC_PID_MAX_OUT, FRIC_PID_MAX_IOUT);
+    PID_init(&shoot_control.fric2_pid, PID_POSITION, fric_speed_pid, FRIC_PID_MAX_OUT, FRIC_PID_MAX_IOUT);
     //更新数据
     shoot_feedback_update();
-    ramp_init(&shoot_control.fric1_ramp, SHOOT_CONTROL_TIME * 0.001f, FRIC_DOWN, FRIC_OFF);
-    ramp_init(&shoot_control.fric2_ramp, SHOOT_CONTROL_TIME * 0.001f, FRIC_DOWN, FRIC_OFF);
-    shoot_control.fric_pwm1 = FRIC_OFF;
-    shoot_control.fric_pwm2 = FRIC_OFF;
+
     shoot_control.ecd_count = 0;
     shoot_control.angle = shoot_control.shoot_motor_measure->ecd * MOTOR_ECD_TO_ANGLE;
     shoot_control.given_current = 0;
@@ -105,6 +103,15 @@ void shoot_init(void)
     shoot_control.speed = 0.0f;
     shoot_control.speed_set = 0.0f;
     shoot_control.key_time = 0;
+
+    shoot_control.fric_speed_set = 0.0f;
+    shoot_control.fric_speed_base = FRIC_SPEED_LOW;
+    shoot_control.fric1_given_current = 0;
+    shoot_control.fric2_given_current = 0;
+    shoot_control.high_freq_flag = 0;
+    shoot_control.last_key_c = 0;
+    shoot_control.last_key_q = 0;
+    shoot_control.last_key_f = 0;
 }
 
 /**
@@ -129,9 +136,9 @@ int16_t shoot_control_loop(void)
         //设置拨弹轮的速度
         shoot_control.speed_set = 0.0f;
     }
-    else if(shoot_control.shoot_mode ==SHOOT_READY_BULLET)
+    else if (shoot_control.shoot_mode == SHOOT_READY_BULLET)
     {
-        if(shoot_control.key == SWITCH_TRIGGER_OFF)
+        if (shoot_control.key == SWITCH_TRIGGER_OFF)
         {
             //设置拨弹轮的拨动速度,并开启堵转反转处理
             shoot_control.trigger_speed_set = READY_TRIGGER_SPEED;
@@ -148,7 +155,7 @@ int16_t shoot_control_loop(void)
     else if (shoot_control.shoot_mode == SHOOT_READY)
     {
         //设置拨弹轮的速度
-         shoot_control.speed_set = 0.0f;
+        shoot_control.speed_set = 0.0f;
     }
     else if (shoot_control.shoot_mode == SHOOT_BULLET)
     {
@@ -159,21 +166,30 @@ int16_t shoot_control_loop(void)
     else if (shoot_control.shoot_mode == SHOOT_CONTINUE_BULLET)
     {
         //设置拨弹轮的拨动速度,并开启堵转反转处理
-        shoot_control.trigger_speed_set = CONTINUE_TRIGGER_SPEED;
+        if (shoot_control.high_freq_flag)
+        {
+            shoot_control.trigger_speed_set = CONTINUE_TRIGGER_SPEED * 1.5f;
+        }
+        else
+        {
+            shoot_control.trigger_speed_set = CONTINUE_TRIGGER_SPEED;
+        }
         trigger_motor_turn_back();
     }
-    else if(shoot_control.shoot_mode == SHOOT_DONE)
+    else if (shoot_control.shoot_mode == SHOOT_DONE)
     {
         shoot_control.speed_set = 0.0f;
     }
 
-    if(shoot_control.shoot_mode == SHOOT_STOP)
+    if ((shoot_control.shoot_mode != SHOOT_STOP) && (shoot_control.shoot_rc->key.v & SHOOT_REVERSE_KEYBOARD))
+    {
+        shoot_control.speed_set = -REVERSE_SPEED_LIMIT;
+    }
+
+    if (shoot_control.shoot_mode == SHOOT_STOP)
     {
         shoot_laser_off();
         shoot_control.given_current = 0;
-        //摩擦轮需要一个个斜波开启，不能同时直接开启，否则可能电机不转
-        ramp_calc(&shoot_control.fric1_ramp, -SHOOT_FRIC_PWM_ADD_VALUE);
-        ramp_calc(&shoot_control.fric2_ramp, -SHOOT_FRIC_PWM_ADD_VALUE);
     }
     else
     {
@@ -181,20 +197,31 @@ int16_t shoot_control_loop(void)
         //计算拨弹轮电机PID
         PID_calc(&shoot_control.trigger_motor_pid, shoot_control.speed, shoot_control.speed_set);
         shoot_control.given_current = (int16_t)(shoot_control.trigger_motor_pid.out);
-        if(shoot_control.shoot_mode < SHOOT_READY_BULLET)
+        if (shoot_control.shoot_mode < SHOOT_READY_BULLET)
         {
             shoot_control.given_current = 0;
         }
-        //摩擦轮需要一个个斜波开启，不能同时直接开启，否则可能电机不转
-        ramp_calc(&shoot_control.fric1_ramp, SHOOT_FRIC_PWM_ADD_VALUE);
-        ramp_calc(&shoot_control.fric2_ramp, SHOOT_FRIC_PWM_ADD_VALUE);
-
     }
 
-    shoot_control.fric_pwm1 = (uint16_t)(shoot_control.fric1_ramp.out);
-    shoot_control.fric_pwm2 = (uint16_t)(shoot_control.fric2_ramp.out);
-    shoot_fric1_on(shoot_control.fric_pwm1);
-    shoot_fric2_on(shoot_control.fric_pwm2);
+    if (shoot_control.shoot_mode == SHOOT_STOP)
+    {
+        shoot_control.fric_speed_set = 0.0f;
+    }
+    else
+    {
+        shoot_control.fric_speed_set = shoot_control.fric_speed_base;
+    }
+
+    // 摩擦轮1正转，摩擦轮2反转
+    PID_calc(&shoot_control.fric1_pid,
+             (fp32)shoot_control.fric1_motor_measure->speed_rpm,
+             shoot_control.fric_speed_set);
+    PID_calc(&shoot_control.fric2_pid,
+             (fp32)shoot_control.fric2_motor_measure->speed_rpm,
+             -shoot_control.fric_speed_set);
+    shoot_control.fric1_given_current = (int16_t)shoot_control.fric1_pid.out;
+    shoot_control.fric2_given_current = (int16_t)shoot_control.fric2_pid.out;
+
     return shoot_control.given_current;
 }
 
@@ -206,6 +233,9 @@ int16_t shoot_control_loop(void)
 static void shoot_set_mode(void)
 {
     static int8_t last_s = RC_SW_UP;
+    bool_t key_q;
+    bool_t key_c;
+    bool_t key_f;
 
     //上拨判断， 一次开启，再次关闭
     if ((switch_is_up(shoot_control.shoot_rc->rc.s[SHOOT_RC_MODE_CHANNEL]) && !switch_is_up(last_s) && shoot_control.shoot_mode == SHOOT_STOP))
@@ -217,30 +247,63 @@ static void shoot_set_mode(void)
         shoot_control.shoot_mode = SHOOT_STOP;
     }
 
-    //处于中档， 可以使用键盘开启摩擦轮
-    if (switch_is_mid(shoot_control.shoot_rc->rc.s[SHOOT_RC_MODE_CHANNEL]) && (shoot_control.shoot_rc->key.v & SHOOT_ON_KEYBOARD) && shoot_control.shoot_mode == SHOOT_STOP)
+    key_q = (shoot_control.shoot_rc->key.v & SHOOT_TOGGLE_KEYBOARD) ? 1 : 0;
+    key_c = (shoot_control.shoot_rc->key.v & SHOOT_HIGH_FREQ_KEYBOARD) ? 1 : 0;
+    key_f = (shoot_control.shoot_rc->key.v & SHOOT_FRIC_DEC_KEYBOARD) ? 1 : 0;
+
+    if (switch_is_mid(shoot_control.shoot_rc->rc.s[SHOOT_RC_MODE_CHANNEL]))
     {
-        shoot_control.shoot_mode = SHOOT_READY_FRIC;
-    }
-    //处于中档， 可以使用键盘关闭摩擦轮
-    else if (switch_is_mid(shoot_control.shoot_rc->rc.s[SHOOT_RC_MODE_CHANNEL]) && (shoot_control.shoot_rc->key.v & SHOOT_OFF_KEYBOARD) && shoot_control.shoot_mode != SHOOT_STOP)
-    {
-        shoot_control.shoot_mode = SHOOT_STOP;
+        if (key_q && !shoot_control.last_key_q)
+        {
+            if (shoot_control.shoot_mode == SHOOT_STOP)
+            {
+                shoot_control.shoot_mode = SHOOT_READY_FRIC;
+            }
+            else
+            {
+                shoot_control.shoot_mode = SHOOT_STOP;
+            }
+        }
+
+        if (key_c && !shoot_control.last_key_c)
+        {
+            shoot_control.high_freq_flag = !shoot_control.high_freq_flag;
+        }
+
+        if (key_f && !shoot_control.last_key_f)
+        {
+            if (shoot_control.shoot_rc->key.v & SHOOT_FRIC_INC_KEYBOARD)
+            {
+                shoot_control.fric_speed_base += FRIC_SPEED_ADJUST_STEP;
+            }
+            else
+            {
+                shoot_control.fric_speed_base -= FRIC_SPEED_ADJUST_STEP;
+            }
+
+
+        }
     }
 
-    if(shoot_control.shoot_mode == SHOOT_READY_FRIC && shoot_control.fric1_ramp.out == shoot_control.fric1_ramp.max_value && shoot_control.fric2_ramp.out == shoot_control.fric2_ramp.max_value)
+    shoot_control.last_key_q = key_q;
+    shoot_control.last_key_c = key_c;
+    shoot_control.last_key_f = key_f;
+
+    if (shoot_control.shoot_mode == SHOOT_READY_FRIC
+        && fabs(shoot_control.fric1_motor_measure->speed_rpm - shoot_control.fric_speed_set) < FRIC_READY_SPEED_ERR
+        && fabs((fp32)shoot_control.fric1_motor_measure->speed_rpm) > FRIC_READY_MIN_SPEED)
     {
         shoot_control.shoot_mode = SHOOT_READY_BULLET;
     }
-    else if(shoot_control.shoot_mode == SHOOT_READY_BULLET && shoot_control.key == SWITCH_TRIGGER_ON)
+    else if (shoot_control.shoot_mode == SHOOT_READY_BULLET && shoot_control.key == SWITCH_TRIGGER_ON)
     {
         shoot_control.shoot_mode = SHOOT_READY;
     }
-    else if(shoot_control.shoot_mode == SHOOT_READY && shoot_control.key == SWITCH_TRIGGER_OFF)
+    else if (shoot_control.shoot_mode == SHOOT_READY && shoot_control.key == SWITCH_TRIGGER_OFF)
     {
         shoot_control.shoot_mode = SHOOT_READY_BULLET;
     }
-    else if(shoot_control.shoot_mode == SHOOT_READY)
+    else if (shoot_control.shoot_mode == SHOOT_READY)
     {
         //下拨一次或者鼠标按下一次，进入射击状态
         if ((switch_is_down(shoot_control.shoot_rc->rc.s[SHOOT_RC_MODE_CHANNEL]) && !switch_is_down(last_s)) || (shoot_control.press_l && shoot_control.last_press_l == 0) || (shoot_control.press_r && shoot_control.last_press_r == 0))
@@ -248,12 +311,12 @@ static void shoot_set_mode(void)
             shoot_control.shoot_mode = SHOOT_BULLET;
         }
     }
-    else if(shoot_control.shoot_mode == SHOOT_DONE)
+    else if (shoot_control.shoot_mode == SHOOT_DONE)
     {
-        if(shoot_control.key == SWITCH_TRIGGER_OFF)
+        if (shoot_control.key == SWITCH_TRIGGER_OFF)
         {
             shoot_control.key_time++;
-            if(shoot_control.key_time > SHOOT_DONE_KEY_OFF_TIME)
+            if (shoot_control.key_time > SHOOT_DONE_KEY_OFF_TIME)
             {
                 shoot_control.key_time = 0;
                 shoot_control.shoot_mode = SHOOT_READY_BULLET;
@@ -265,28 +328,28 @@ static void shoot_set_mode(void)
             shoot_control.shoot_mode = SHOOT_BULLET;
         }
     }
-    
 
 
-    if(shoot_control.shoot_mode > SHOOT_READY_FRIC)
+
+    if (shoot_control.shoot_mode > SHOOT_READY_FRIC)
     {
         //鼠标长按一直进入射击状态 保持连发
-        if ((shoot_control.press_l_time == PRESS_LONG_TIME) || (shoot_control.press_r_time == PRESS_LONG_TIME) || (shoot_control.rc_s_time == RC_S_LONG_TIME))
+        if ((shoot_control.press_l_time == MOUSE_LONG_PRESS_TIME) || (shoot_control.press_r_time == MOUSE_LONG_PRESS_TIME) || (shoot_control.rc_s_time == RC_S_LONG_TIME))
         {
             shoot_control.shoot_mode = SHOOT_CONTINUE_BULLET;
         }
-        else if(shoot_control.shoot_mode == SHOOT_CONTINUE_BULLET)
+        else if (shoot_control.shoot_mode == SHOOT_CONTINUE_BULLET)
         {
-            shoot_control.shoot_mode =SHOOT_READY_BULLET;
+            shoot_control.shoot_mode = SHOOT_READY_BULLET;
         }
     }
 
     get_shoot_heat0_limit_and_heat0(&shoot_control.heat_limit, &shoot_control.heat);
-    if(!toe_is_error(REFEREE_TOE) && (shoot_control.heat + SHOOT_HEAT_REMAIN_VALUE > shoot_control.heat_limit))
+    if (!toe_is_error(REFEREE_TOE) && (shoot_control.heat + SHOOT_HEAT_REMAIN_VALUE > shoot_control.heat_limit))
     {
-        if(shoot_control.shoot_mode == SHOOT_BULLET || shoot_control.shoot_mode == SHOOT_CONTINUE_BULLET)
+        if (shoot_control.shoot_mode == SHOOT_BULLET || shoot_control.shoot_mode == SHOOT_CONTINUE_BULLET)
         {
-            shoot_control.shoot_mode =SHOOT_READY_BULLET;
+            shoot_control.shoot_mode = SHOOT_READY_BULLET;
         }
     }
     //如果云台状态是 无力状态，就关闭射击
@@ -349,7 +412,7 @@ static void shoot_feedback_update(void)
     //长按计时
     if (shoot_control.press_l)
     {
-        if (shoot_control.press_l_time < PRESS_LONG_TIME)
+        if (shoot_control.press_l_time < MOUSE_LONG_PRESS_TIME)
         {
             shoot_control.press_l_time++;
         }
@@ -361,7 +424,7 @@ static void shoot_feedback_update(void)
 
     if (shoot_control.press_r)
     {
-        if (shoot_control.press_r_time < PRESS_LONG_TIME)
+        if (shoot_control.press_r_time < MOUSE_LONG_PRESS_TIME)
         {
             shoot_control.press_r_time++;
         }
@@ -384,32 +447,11 @@ static void shoot_feedback_update(void)
     {
         shoot_control.rc_s_time = 0;
     }
-
-    //鼠标右键按下加速摩擦轮，使得左键低速射击， 右键高速射击
-    static uint16_t up_time = 0;
-    if (shoot_control.press_r)
-    {
-        up_time = UP_ADD_TIME;
-    }
-
-    if (up_time > 0)
-    {
-        shoot_control.fric1_ramp.max_value = FRIC_UP;
-        shoot_control.fric2_ramp.max_value = FRIC_UP;
-        up_time--;
-    }
-    else
-    {
-        shoot_control.fric1_ramp.max_value = FRIC_DOWN;
-        shoot_control.fric2_ramp.max_value = FRIC_DOWN;
-    }
-
-
 }
 
 static void trigger_motor_turn_back(void)
 {
-    if( shoot_control.block_time < BLOCK_TIME)
+    if (shoot_control.block_time < BLOCK_TIME)
     {
         shoot_control.speed_set = shoot_control.trigger_speed_set;
     }
@@ -418,7 +460,7 @@ static void trigger_motor_turn_back(void)
         shoot_control.speed_set = -shoot_control.trigger_speed_set;
     }
 
-    if(fabs(shoot_control.speed) < BLOCK_TRIGGER_SPEED && shoot_control.block_time < BLOCK_TIME)
+    if (fabs(shoot_control.speed) < BLOCK_TRIGGER_SPEED && shoot_control.block_time < BLOCK_TIME)
     {
         shoot_control.block_time++;
         shoot_control.reverse_time = 0;
@@ -447,7 +489,7 @@ static void shoot_bullet_control(void)
         shoot_control.set_angle = rad_format(shoot_control.angle + PI_TEN);
         shoot_control.move_flag = 1;
     }
-    if(shoot_control.key == SWITCH_TRIGGER_OFF)
+    if (shoot_control.key == SWITCH_TRIGGER_OFF)
     {
 
         shoot_control.shoot_mode = SHOOT_DONE;
@@ -465,3 +507,15 @@ static void shoot_bullet_control(void)
     }
 }
 
+void shoot_get_fric_current(int16_t *fric1, int16_t *fric2)
+{
+    if (fric1 != NULL)
+    {
+        *fric1 = shoot_control.fric1_given_current;
+    }
+
+    if (fric2 != NULL)
+    {
+        *fric2 = shoot_control.fric2_given_current;
+    }
+}
