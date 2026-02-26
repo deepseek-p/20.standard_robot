@@ -48,6 +48,7 @@
 - [ai_sessions/2026-02-25_pitch_encode_speed_feedback_from_encoder.md](ai_sessions/2026-02-25_pitch_encode_speed_feedback_from_encoder.md)：Pitch ENCONDE 模式下速度环改用编码器转速反馈（替代 IMU pitch gyro）
 - [ai_sessions/2026-02-25_pitch_encode_ecd_lpf_damping.md](ai_sessions/2026-02-25_pitch_encode_ecd_lpf_damping.md)：Pitch ENCONDE 速度反馈加入一阶低通，抑制 1ms 量化阶梯引发的残余振荡
 - [ai_sessions/2026-02-25_pitch_encode_pid_kp24_ki0_finalize.md](ai_sessions/2026-02-25_pitch_encode_pid_kp24_ki0_finalize.md)：Pitch ENCONDE 角度环参数固化为 Kp=24/Ki=0，消除上电重复调参
+- [ai_sessions/2026-02-26_shoot_fric_can_closed_loop_migration.md](ai_sessions/2026-02-26_shoot_fric_can_closed_loop_migration.md)：摩擦轮从 PWM 开环迁移到 hcan2 双 3508 CAN 闭环速度控制
 - [adr/ADR_TEMPLATE.md](adr/ADR_TEMPLATE.md)：架构决策记录模板
 
 ## 根目录兼容入口

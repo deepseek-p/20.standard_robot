@@ -50,3 +50,11 @@
 - `USBTask` now parses CDC RX text commands in task context before `osDelay`: `SET/GET/DUMP`.
 - `CDC_Receive_FS` remains enqueue-only and exports RX ring buffer accessors (`usb_rx_available` / `usb_rx_read_byte`).
 - Runtime writable control accessors are added for gimbal/chassis control objects to support direct PID field updates.
+
+## 2026-02-26 Supplement: Shoot Fric CAN Closed-Loop
+
+- `gimbalTask` CAN send path now contains two frames per control cycle on `hcan2`:
+- `CAN_cmd_gimbal(0x1FF)` for yaw/pitch/trigger.
+- `CAN_cmd_fric(0x200)` for fric1/fric2 currents.
+- `shoot_control_loop` now computes fric closed-loop currents from real RPM feedback (`0x201/0x202`) and exports via `shoot_get_fric_current`.
+- Fault path (`DBUS` or key gimbal/trigger motor offline) sends zero current to both `gimbal` and `fric` groups.

@@ -81,3 +81,11 @@
 - Solidified `PITCH_ENCODE_RELATIVE_PID` to verified values: `Kp=24.0`, `Ki=0.0`, `Kd=0.0`, `max_out=10.0`, `max_iout=0.5`.
 - Rationale: avoids static-friction induced integrator windup in linkage mechanism and removes per-boot online retune.
 - Pending: long-run thermal validation under continuous operation.
+
+## 2026-02-26 Shoot Fric CAN Closed-Loop Migration
+- Status: In Progress
+- Replaced fric control path from PWM ramp to CAN speed closed-loop (`hcan2`, `0x200` group, `0x201/0x202` feedback).
+- `CAN_receive` now splits motor parsing by CAN bus to avoid `hcan1/hcan2` same-ID aliasing on `0x201/0x202`.
+- `shoot` state machine now uses real fric RPM readiness check, plus keyboard edge controls: `Q` toggle, `C` high frequency, `F/SHIFT+F` speed trim, `G` trigger reverse.
+- `gimbal_task` now sends both `CAN_cmd_gimbal` and `CAN_cmd_fric`; fault paths send zero to both.
+- Pending: board-side direction check, ready-state transition check, and continuous fire verification.
