@@ -34,7 +34,7 @@
 | `application/chassis_power_control.c` / `application/chassis_power_control.h` | 底盘功率限流（参考裁判系统功率/缓冲） | `chassis_power_control`、`get_chassis_power_and_buffer` |
 | `application/shoot.c` / `application/shoot.h` | 射击状态机与拨弹/摩擦轮控制 | `shoot_init`、`shoot_control_loop`、`shoot_mode_e` |
 | `application/referee.c` / `application/referee.h` | 裁判系统数据结构维护与查询接口 | `referee_data_solve`、`get_robot_id`、`get_shoot_heat0_limit_and_heat0` |
-| `application/referee_usart_task.c` / `application/referee_usart_task.h` | 裁判系统串口 DMA 接收与协议解包任务 | `referee_usart_task`、`USART6_IRQHandler`、`referee_unpack_fifo_data` |
+| `application/referee_usart_task.c` / `application/referee_usart_task.h` | 裁判系统串口 DMA 接收与协议解包任务（WiFi 模式下承载 USART1 RXNE 环形缓冲） | `referee_usart_task`、`USART6_IRQHandler`、`USART1_IRQHandler`、`referee_unpack_fifo_data`、`uart1_rx_available/read` |
 | `application/INS_task.c` / `application/INS_task.h` | IMU 采样、姿态解算、温控与数据发布 | `INS_task`、`get_INS_angle_point`、`HAL_GPIO_EXTI_Callback`、`DMA2_Stream2_IRQHandler` |
 | `application/detect_task.c` / `application/detect_task.h` | 在线状态与错误检测中心 | `detect_task`、`detect_hook`、`toe_is_error`、`error_list` |
 | `application/usb_task.c` / `application/usb_task.h` | USB CDC 调试任务（FireWater 遥测 + 在线 PID 命令解析） | `usb_task`、`usb_debug_set_channel_mask`、`usb_debug_get_channel_mask`、`usb_cmd_process`、`CDC_Transmit_FS`、`usb_rx_available`、`usb_rx_read_byte` |
@@ -89,4 +89,22 @@
 - `Src/usbd_cdc_if.c`: added null guard before using `hUsbDeviceFS.pClassData` in `CDC_Transmit_FS` to prevent USB-not-configured hard fault.
 - `Src/usbd_cdc_if.c/h`: add SPSC RX ring buffer API (`usb_rx_available` / `usb_rx_read_byte`), and keep `CDC_Receive_FS` as enqueue-only fast path.
 - `Src/freertos.c`: `USBTask` stack increased to improve robustness for long-format telemetry output.
+
+## 2026-02-26 Supplement: WiFi Bridge Module Map
+
+- `application/wifi_bridge.h` (new):
+  - central switch `WIFI_BRIDGE_ENABLE`;
+  - UART1 WiFi RX API declaration (`uart1_rx_available` / `uart1_rx_read_byte`).
+- `application/referee_usart_task.c`:
+  - retains referee decode chain for `WIFI_BRIDGE_ENABLE=0`;
+  - keeps `USART6_IRQHandler` as referee-only IDLE+DMA;
+  - adds WiFi RX `USART1_IRQHandler` ring-buffer path.
+- `application/usb_task.c`:
+  - adds `wifi_uart1_init`, `wifi_cmd_process`, `wifi_cmd_replyf`;
+  - command parser now supports reply-function routing per ingress channel;
+  - FireWater output duplicates to USART1 when WiFi mode is enabled.
+- `application/remote_control.c`:
+  - `sbus_to_usart1` forwarding is disabled under `WIFI_BRIDGE_ENABLE=1` to avoid bridge-port contention.
+- External companion projects:
+  - `D:/tools/esp32_wifi_bridge`: ESP32 AP + UDP/TCP bridge firmware.
 

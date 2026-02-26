@@ -48,6 +48,8 @@
 - [ai_sessions/2026-02-25_pitch_encode_speed_feedback_from_encoder.md](ai_sessions/2026-02-25_pitch_encode_speed_feedback_from_encoder.md)：Pitch ENCONDE 模式下速度环改用编码器转速反馈（替代 IMU pitch gyro）
 - [ai_sessions/2026-02-25_pitch_encode_ecd_lpf_damping.md](ai_sessions/2026-02-25_pitch_encode_ecd_lpf_damping.md)：Pitch ENCONDE 速度反馈加入一阶低通，抑制 1ms 量化阶梯引发的残余振荡
 - [ai_sessions/2026-02-25_pitch_encode_pid_kp24_ki0_finalize.md](ai_sessions/2026-02-25_pitch_encode_pid_kp24_ki0_finalize.md)：Pitch ENCONDE 角度环参数固化为 Kp=24/Ki=0，消除上电重复调参
+- [ai_sessions/2026-02-26_wifi_bridge_usart6_esp32_mcp.md](ai_sessions/2026-02-26_wifi_bridge_usart6_esp32_mcp.md)：WiFi 无线调参链路落地（USART6 + ESP32 + MCP）
+- [ai_sessions/2026-02-26_wifi_bridge_migrate_to_usart1.md](ai_sessions/2026-02-26_wifi_bridge_migrate_to_usart1.md)：WiFi 桥接迁移到 USART1（板载 UART2 4pin 映射）
 - [adr/ADR_TEMPLATE.md](adr/ADR_TEMPLATE.md)：架构决策记录模板
 
 ## 根目录兼容入口
