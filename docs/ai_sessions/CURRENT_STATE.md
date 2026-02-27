@@ -90,6 +90,19 @@
 - `gimbal_task` now sends both `CAN_cmd_gimbal` and `CAN_cmd_fric`; fault paths send zero to both.
 - Pending: board-side direction check, ready-state transition check, and continuous fire verification.
 
+## 2026-02-26 WiFi Bridge (USART1 + ESP32)
+- Status: Blocked - 需数据
+- STM32:
+  - 新增 `application/wifi_bridge.h` 统一 `WIFI_BRIDGE_ENABLE`。
+  - `referee_usart_task` 在 WiFi 模式保持原裁判初始化与解包链路（`usart6_init` + FIFO 解包）。
+  - `USART6_IRQHandler` 回归裁判 IDLE+DMA；WiFi RX 改为 `USART1_IRQHandler` + 环形缓冲。
+  - `usb_task` 新增 `wifi_uart1_init`、`wifi_cmd_process`、命令回复路由与 USART1 遥测发送。
+  - `remote_control.c` 在 WiFi 模式下屏蔽 `sbus_to_usart1`，避免 USART1 复用冲突。
+- ESP32:
+  - 保持 `D:/tools/esp32_wifi_bridge`，AP=`TX`，UDP:8401，TCP:8402，按行分类转发。
+- Pending:
+  - 缺实机联调数据，需回填 capture/set/get/dump 连续压测结果、丢帧统计与遥控链路回归。
+
 ## 2026-02-27 Pitch Adaptive Gravity Feedforward
 - Status: In Progress
 - Replaced fixed-K gravity feedforward with adaptive LMS model in `gimbal_motor_relative_angle_control`:

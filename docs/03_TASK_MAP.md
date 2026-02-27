@@ -58,3 +58,15 @@
 - `CAN_cmd_fric(0x200)` for fric1/fric2 currents.
 - `shoot_control_loop` now computes fric closed-loop currents from real RPM feedback (`0x201/0x202`) and exports via `shoot_get_fric_current`.
 - Fault path (`DBUS` or key gimbal/trigger motor offline) sends zero current to both `gimbal` and `fric` groups.
+
+## 2026-02-26 Supplement: WiFi Bridge via USART1
+
+- New compile switch: `application/wifi_bridge.h` -> `WIFI_BRIDGE_ENABLE`.
+- `WIFI_BRIDGE_ENABLE=1` behavior changes:
+  - `REFEREE` task (`referee_usart_task`) keeps referee UART DMA initialization and unpack loop unchanged.
+  - `USART6_IRQHandler` remains referee `IDLE + DMA` path; WiFi RX input runs on `USART1_IRQHandler` byte-ring (`uart1_rx_available` / `uart1_rx_read_byte`).
+  - `USBTask` initializes USART1 WiFi RX path (`wifi_uart1_init`) and processes an extra command source (`wifi_cmd_process`).
+  - `USBTask` telemetry adds blocking USART1 TX copy in addition to USB CDC output.
+  - `remote_control.c` disables `sbus_to_usart1` forwarding when `WIFI_BRIDGE_ENABLE=1`.
+- Timing note:
+  - At 115200 baud, USART1 blocking telemetry TX may stretch `USBTask` effective telemetry period (expected from ~50Hz to ~18-22Hz for typical frame length).

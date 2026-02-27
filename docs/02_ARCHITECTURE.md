@@ -45,6 +45,23 @@
 - 裁判系统：`USART6_IRQHandler` + FIFO -> `referee_usart_task` 解包 -> `referee.c` 更新结构体。
 - USB：`usb_task` 通过 CDC 输出状态文本。
 
+### 3.4 WiFi 调参与 USART1 复用链路（2026-02-26）
+
+- 编译开关：`application/wifi_bridge.h` 中 `WIFI_BRIDGE_ENABLE`。
+- `WIFI_BRIDGE_ENABLE == 0`：
+  - 保持原链路：`USART6` 由裁判系统 `IDLE + DMA 双缓冲` 使用。
+- `WIFI_BRIDGE_ENABLE == 1`：
+  - `referee_usart_task` 继续执行原裁判初始化与解包链路（`usart6_init()` + FIFO 解包）。
+  - `USART6_IRQHandler` 保持裁判 `IDLE + DMA` 路径；WiFi 接收改为 `USART1_IRQHandler` 的 `RXNE` 逐字节收包（`uart1_rx_buf` 环形缓冲）。
+  - `usb_task` 初始化阶段执行 `wifi_uart1_init()`（清 USART1 的 DMAR/DMAT，启 RXNE，并使能 `USART1_IRQn`）。
+  - `usb_task` 在 USB 命令解析外新增 `wifi_cmd_process()`：
+    - USB 收到的命令回复走 `CDC_Transmit_FS`。
+    - UART1 收到的命令回复走 `HAL_UART_Transmit(&huart1, ...)`。
+  - FireWater 遥测在 WiFi 模式下同时：
+    - 保留 USB CDC 发出（非阻塞）
+    - 额外通过 USART1 阻塞发出到 ESP32。
+  - `remote_control.c` 的 `sbus_to_usart1()` 在 WiFi 模式下屏蔽，避免与桥接串口用途冲突。
+
 ## 2026-02-27 Supplement: Pitch Adaptive Gravity Feedforward Data Path
 
 - `gimbal_motor_relative_angle_control()` 在 pitch 分支先得到速度环输出 `I_pid`，再叠加
@@ -60,7 +77,7 @@
 ## 2026-02-27 Supplement: Adaptive FF Deadlock Fix (7b)
 
 - 去除准静态学习中的角度误差门限（不再依赖 `|angle_err| < TH`），
-  允许“被重力压住但速度近零”的工况继续学习。
+  允许”被重力压住但速度近零”的工况继续学习。
 - 学习触发条件收敛为：
   `|speed| < PITCH_FF_SPEED_TH` 且 `|I_cmd| < PITCH_FF_SAT_TH`。
 - 学习率与变化率限制同步上调（10x）：
@@ -89,7 +106,7 @@
 ## 4. 中断与任务耦合点（高风险）
 
 - CAN 接收中断：`HAL_CAN_RxFifo0MsgPendingCallback` 写电机反馈并触发 `detect_hook`。
-- USART3/USART6 中断：串口 DMA 缓冲切换 + 协议解析入口。
+- USART3/USART6/USART1 中断：串口 DMA 缓冲切换 + 协议解析/桥接入口。
 - EXTI + DMA（IMU）：`HAL_GPIO_EXTI_Callback` / `DMA2_Stream2_IRQHandler` 与 `INS_task` 通过 `ulTaskNotifyTake` 同步。
 
 这些点改动时，必须同步更新 `docs/03_TASK_MAP.md` 与会话记录。
