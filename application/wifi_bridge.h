@@ -2,9 +2,10 @@
 #define WIFI_BRIDGE_H
 
 #include "struct_typedef.h"
+#include "usb_task.h"
 
 #ifndef WIFI_BRIDGE_ENABLE
-#define WIFI_BRIDGE_ENABLE 1
+#define WIFI_BRIDGE_ENABLE  (TELEM_OUTPUT_MODE == TELEM_MODE_WIFI)
 #endif
 
 #if WIFI_BRIDGE_ENABLE

@@ -120,6 +120,9 @@ static const error_t *error_list_usb_local;
 
 static uint32_t usb_debug_seq = 0;
 static uint32_t usb_debug_drop_cnt = 0;
+#if WIFI_BRIDGE_ENABLE
+static uint32_t wifi_debug_drop_cnt = 0;
+#endif
 static uint16_t usb_debug_channel_mask = USB_DEBUG_CHANNEL_MASK_DEFAULT;
 
 static uint8_t usb_last_dbus_error = 0xFFu;
@@ -201,6 +204,9 @@ void usb_task(void const *argument)
     uint32_t last_frame_ms = 0;
 
     (void)argument;
+#if WIFI_BRIDGE_ENABLE
+    (void)usb_debug_drop_cnt;
+#endif
 
     MX_USB_DEVICE_Init();
 #if WIFI_BRIDGE_ENABLE
@@ -212,7 +218,7 @@ void usb_task(void const *argument)
     {
         uint32_t now_ms = usb_debug_now_ms();
 
-#if USB_DEBUG_OUTPUT_ENABLE
+#if (TELEM_OUTPUT_MODE != TELEM_MODE_NONE)
         if (now_ms - last_frame_ms >= USB_DEBUG_FRAME_PERIOD_MS)
         {
             usb_emit_firewater_frame(now_ms);
@@ -1122,7 +1128,11 @@ static bool_t usb_emit_firewater_frame(uint32_t now_ms)
                    "%lu,%lu,%lu,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld\r\n",
                    now_ms,
                    seq,
+#if WIFI_BRIDGE_ENABLE
+                   wifi_debug_drop_cnt,
+#else
                    usb_debug_drop_cnt,
+#endif
                    usb_debug_masked_i32(USB_DBG_CH_HEALTH, get_battery_percentage()),
                    usb_debug_masked_u8(USB_DBG_CH_HEALTH, dbus_error),
                    usb_debug_masked_u8(USB_DBG_CH_HEALTH, yaw_error),
@@ -1185,30 +1195,33 @@ static bool_t usb_emit_firewater_frame(uint32_t now_ms)
 
     if (len >= (int)USB_DEBUG_FRAME_MAX_LEN)
     {
-        usb_debug_drop_cnt++;
-        return 0;
-    }
-
 #if WIFI_BRIDGE_ENABLE
-    if (CDC_Transmit_FS(usb_buf, (uint16_t)len) != 0)
-    {
+        wifi_debug_drop_cnt++;
+#else
         usb_debug_drop_cnt++;
-    }
-
-    if (HAL_UART_Transmit(&huart1, usb_buf, (uint16_t)len, 100u) != HAL_OK)
-    {
-        usb_debug_drop_cnt++;
+#endif
         return 0;
     }
 
-    return 1;
-#else
+#if (TELEM_OUTPUT_MODE == TELEM_MODE_USB)
     if (CDC_Transmit_FS(usb_buf, (uint16_t)len) == 0)
     {
         return 1;
     }
 
     usb_debug_drop_cnt++;
+    return 0;
+
+#elif (TELEM_OUTPUT_MODE == TELEM_MODE_WIFI)
+    if (HAL_UART_Transmit(&huart1, usb_buf, (uint16_t)len, 100u) == HAL_OK)
+    {
+        return 1;
+    }
+    wifi_debug_drop_cnt++;
+    return 0;
+
+#else
+    (void)len;
     return 0;
 #endif
 }

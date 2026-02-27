@@ -20,7 +20,22 @@
 #define USB_TASK_H
 #include "struct_typedef.h"
 
-#define USB_DEBUG_OUTPUT_ENABLE 1
+/*
+ * ============================================================
+ *  遥测输出模式选择（三选一，改下面这一行即可）
+ *
+ *  TELEM_MODE_NONE (0) — 关闭遥测输出，不发帧，命令通道仍可用
+ *  TELEM_MODE_USB  (1) — 遥测帧只走 USB CDC（插线调参）
+ *  TELEM_MODE_WIFI (2) — 遥测帧只走 UART1 WiFi（无线调参）
+ * ============================================================
+ */
+#define TELEM_MODE_NONE  0
+#define TELEM_MODE_USB   1
+#define TELEM_MODE_WIFI  2
+
+#ifndef TELEM_OUTPUT_MODE
+#define TELEM_OUTPUT_MODE  TELEM_MODE_WIFI   /* <-- 改这里 */
+#endif
 
 #define USB_DEBUG_TASK_PERIOD_MS  5u
 #define USB_DEBUG_FRAME_PERIOD_MS 20u
