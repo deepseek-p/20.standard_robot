@@ -73,6 +73,14 @@
 #define PITCH_ENCODE_RELATIVE_PID_MAX_OUT 10.0f
 #define PITCH_ENCODE_RELATIVE_PID_MAX_IOUT 0.5f
 
+// Pitch adaptive gravity feedforward (single parameter b_hat)
+#define PITCH_FF_GAMMA_BASE     0.005f
+#define PITCH_FF_GAMMA_ERR_GAIN 0.5f
+#define PITCH_FF_GAMMA_MAX      0.05f
+#define PITCH_FF_B_INIT         0.0f
+#define PITCH_FF_B_MAX          15000.0f
+#define PITCH_FF_SPEED_TH       0.5f
+#define PITCH_FF_ALPHA_DOT_MAX  500.0f
 //yaw encode angle close-loop PID params, max out and max iout
 //yaw 角度环 角度由编码器 PID参数以及 PID最大输出，积分输出
 #define YAW_ENCODE_RELATIVE_PID_KP        8.0f
@@ -288,6 +296,8 @@ extern const gimbal_motor_t *get_pitch_motor_point(void);
 extern gimbal_control_t *get_gimbal_control_point(void);
 
 extern bool_t get_gimbal_debug_snapshot(gimbal_debug_snapshot_t *snapshot);
+extern fp32 get_pitch_ff_K_hat(void);
+extern fp32 get_pitch_ff_b_hat(void);
 
 /**
   * @brief          gimbal task, osDelay GIMBAL_CONTROL_TIME (1ms) 

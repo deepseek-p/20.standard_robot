@@ -96,6 +96,7 @@ void shoot_init(void)
     shoot_feedback_update();
 
     shoot_control.ecd_count = 0;
+    shoot_control.bullet_fired_count = 0;
     shoot_control.angle = shoot_control.shoot_motor_measure->ecd * MOTOR_ECD_TO_ANGLE;
     shoot_control.given_current = 0;
     shoot_control.move_flag = 0;
@@ -503,6 +504,7 @@ static void shoot_bullet_control(void)
     }
     else
     {
+        shoot_control.bullet_fired_count++;
         shoot_control.move_flag = 0;
     }
 }

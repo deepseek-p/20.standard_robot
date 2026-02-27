@@ -52,6 +52,7 @@
 #define MOTOR_RPM_TO_SPEED          0.00290888208665721596153948461415f
 #define MOTOR_ECD_TO_ANGLE          0.000021305288720633905968306772076277f
 #define FULL_COUNT                  18
+#define BULLET_PER_ROUND            10    // trigger wheel bullets per round
 //²¦µ¯ËÙ¶È
 #define TRIGGER_SPEED               10.0f
 #define CONTINUE_TRIGGER_SPEED      15.0f
@@ -151,6 +152,7 @@ typedef struct
     uint16_t heat_limit;
     uint16_t heat;
 
+    uint16_t bullet_fired_count;
     bool_t high_freq_flag;
     bool_t last_key_c;
     bool_t last_key_q;

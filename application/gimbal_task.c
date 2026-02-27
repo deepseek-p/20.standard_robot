@@ -32,14 +32,18 @@
 #include "cmsis_os.h"
 
 #include "arm_math.h"
+#include <math.h>
 #include "CAN_receive.h"
 #include "user_lib.h"
 #include "detect_task.h"
 #include "remote_control.h"
 #include "gimbal_behaviour.h"
 #include "INS_task.h"
-#include "shoot.h"
 #include "pid.h"
+
+extern void shoot_init(void);
+extern int16_t shoot_control_loop(void);
+extern void shoot_get_fric_current(int16_t *fric1, int16_t *fric2);
 
 
 //motor enconde value format, range[0-8191]
@@ -310,6 +314,8 @@ static void J_scope_gimbal_test(void);
 //gimbal control data
 //云台控制所有相关数据
 gimbal_control_t gimbal_control;
+// pitch adaptive feedforward observable states
+static fp32 pitch_ff_b_hat = PITCH_FF_B_INIT;
 
 //motor current 
 //发送的电机电流
@@ -724,6 +730,16 @@ const gimbal_motor_t *get_pitch_motor_point(void)
 gimbal_control_t *get_gimbal_control_point(void)
 {
     return &gimbal_control;
+}
+
+fp32 get_pitch_ff_K_hat(void)
+{
+    return 0.0f;
+}
+
+fp32 get_pitch_ff_b_hat(void)
+{
+    return pitch_ff_b_hat;
 }
 
 bool_t get_gimbal_debug_snapshot(gimbal_debug_snapshot_t *snapshot)
@@ -1236,10 +1252,71 @@ static void gimbal_motor_relative_angle_control(gimbal_motor_t *gimbal_motor)
         return;
     }
 
-    //角度环，速度环串级pid调试
-    gimbal_motor->motor_gyro_set = gimbal_PID_calc(&gimbal_motor->gimbal_motor_relative_angle_pid, gimbal_motor->relative_angle, gimbal_motor->relative_angle_set, gimbal_motor->motor_gyro);
-    gimbal_motor->current_set = PID_calc(&gimbal_motor->gimbal_motor_gyro_pid, gimbal_motor->motor_gyro, gimbal_motor->motor_gyro_set);
-    //控制值赋值
+    // angle loop -> speed set
+    gimbal_motor->motor_gyro_set = gimbal_PID_calc(
+        &gimbal_motor->gimbal_motor_relative_angle_pid,
+        gimbal_motor->relative_angle,
+        gimbal_motor->relative_angle_set,
+        gimbal_motor->motor_gyro);
+
+    // speed loop -> current (PID part)
+    fp32 I_pid = PID_calc(
+        &gimbal_motor->gimbal_motor_gyro_pid,
+        gimbal_motor->motor_gyro,
+        gimbal_motor->motor_gyro_set);
+
+    // Pitch adaptive gravity feedforward (pitch only)
+    if (gimbal_motor == &gimbal_control.gimbal_pitch_motor)
+    {
+        // feedforward: pure bias compensation
+        fp32 I_ff = pitch_ff_b_hat;
+
+        fp32 I_total;
+#if PITCH_TURN
+        I_total = I_pid + I_ff;
+#else
+        I_total = I_pid - I_ff;
+#endif
+        if (I_total > 16000.0f) I_total = 16000.0f;
+        else if (I_total < -16000.0f) I_total = -16000.0f;
+        gimbal_motor->current_set = I_total;
+
+        // quasi-static condition: speed only, no saturation gate
+        fp32 speed = gimbal_motor->motor_gyro;
+        if (fabsf(speed) < PITCH_FF_SPEED_TH)
+        {
+            fp32 error = I_pid;
+#if PITCH_TURN
+#else
+            error = -error;
+#endif
+            // adaptive learning rate
+            fp32 angle_err = gimbal_motor->relative_angle
+                           - gimbal_motor->relative_angle_set;
+            if (angle_err < 0.0f) angle_err = -angle_err;
+            fp32 gamma = PITCH_FF_GAMMA_BASE
+                       + PITCH_FF_GAMMA_ERR_GAIN * angle_err;
+            if (gamma > PITCH_FF_GAMMA_MAX)
+                gamma = PITCH_FF_GAMMA_MAX;
+
+            fp32 db = gamma * error;
+            fp32 max_step = PITCH_FF_ALPHA_DOT_MAX * 0.001f;
+            if (db > max_step) db = max_step;
+            else if (db < -max_step) db = -max_step;
+
+            pitch_ff_b_hat += db;
+            if (pitch_ff_b_hat > PITCH_FF_B_MAX)
+                pitch_ff_b_hat = PITCH_FF_B_MAX;
+            else if (pitch_ff_b_hat < -PITCH_FF_B_MAX)
+                pitch_ff_b_hat = -PITCH_FF_B_MAX;
+        }
+    }
+    else
+    {
+        // non-pitch motor (yaw): no feedforward
+        gimbal_motor->current_set = I_pid;
+    }
+
     gimbal_motor->given_current = (int16_t)(gimbal_motor->current_set);
 }
 

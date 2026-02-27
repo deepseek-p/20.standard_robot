@@ -109,6 +109,8 @@ extern shoot_control_t shoot_control;
  * 52:fric1_cur     -> friction wheel 1 given current
  * 53:fric2_cur     -> friction wheel 2 given current
  * 54:trigger_cur   -> trigger motor given current
+ * 55:ff_k_hat      -> pitch adaptive feedforward K_hat (milli-scale)
+ * 56:ff_b_hat      -> pitch adaptive feedforward b_hat (raw, no scale)
  */
 
 static uint8_t usb_buf[USB_DEBUG_FRAME_MAX_LEN];
@@ -1012,7 +1014,7 @@ static bool_t usb_emit_firewater_frame(uint32_t now_ms)
     seq = usb_debug_next_seq();
 
     len = snprintf((char *)usb_buf, USB_DEBUG_FRAME_MAX_LEN,
-                   "%lu,%lu,%lu,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld\r\n",
+                   "%lu,%lu,%lu,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld\r\n",
                    now_ms,
                    seq,
                    usb_debug_drop_cnt,
@@ -1067,7 +1069,9 @@ static bool_t usb_emit_firewater_frame(uint32_t now_ms)
                     usb_debug_masked_fp32_milli(USB_DBG_CH_SHOOT, shoot_control.fric_speed_set),
                     usb_debug_masked_i32(USB_DBG_CH_SHOOT, (int32_t)shoot_control.fric1_given_current),
                     usb_debug_masked_i32(USB_DBG_CH_SHOOT, (int32_t)shoot_control.fric2_given_current),
-                    usb_debug_masked_i32(USB_DBG_CH_SHOOT, (int32_t)shoot_control.given_current));
+                    usb_debug_masked_i32(USB_DBG_CH_SHOOT, (int32_t)shoot_control.given_current),
+                    usb_debug_fp32_to_milli(get_pitch_ff_K_hat()),
+                    (int32_t)(get_pitch_ff_b_hat()));
 
     if (len <= 0)
     {
