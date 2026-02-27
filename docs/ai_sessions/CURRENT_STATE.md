@@ -103,6 +103,21 @@
 - Pending:
   - 缺实机联调数据，需回填 capture/set/get/dump 连续压测结果、丢帧统计与遥控链路回归。
 
+## 2026-02-27 USB/WiFi Telemetry Mode Mutex + Split Drop Counter
+- Status: In Progress
+- `usb_task.h` 新增互斥输出模式：
+  `TELEM_MODE_NONE / TELEM_MODE_USB / TELEM_MODE_WIFI`，
+  默认 `TELEM_OUTPUT_MODE=TELEM_MODE_USB`。
+- `wifi_bridge.h` 的 `WIFI_BRIDGE_ENABLE` 改为从 `TELEM_OUTPUT_MODE` 自动派生。
+- `usb_task.c`：
+  - 主循环仅在非 NONE 模式调度 FireWater 输出。
+  - 输出路径改为互斥（USB-only / WiFi-only / no-output）。
+  - drop 计数拆分为 `usb_debug_drop_cnt` 和 `wifi_debug_drop_cnt`，
+    FireWater 的 drop 字段在 WiFi 模式显示 `wifi_debug_drop_cnt`。
+- Pending:
+  - 在 Keil 中分别验证 `TELEM_OUTPUT_MODE=0/1/2` 三种模式编译结果（warning/error）。
+  - 板端验证三模式行为与 drop 字段语义是否符合预期。
+
 ## 2026-02-27 Pitch Adaptive Gravity Feedforward
 - Status: In Progress
 - Replaced fixed-K gravity feedforward with adaptive LMS model in `gimbal_motor_relative_angle_control`:
@@ -154,3 +169,17 @@
 - Pending:
   - Compare loaded anti-gravity recovery time before/after 7d.
   - Check post-convergence current ripple and steady-state error near target.
+
+## 2026-02-27 USBTask Priority Lowering for WiFi DBUS Stability
+- Status: In Progress
+- In `Src/freertos.c`, `USBTask` priority changed:
+  `osPriorityNormal -> osPriorityBelowNormal`.
+- Goal: avoid DBUS false-offline alarms when `TELEM_MODE_WIFI` uses blocking
+  `HAL_UART_Transmit(&huart1, ..., 100u)` in telemetry path.
+- Unchanged:
+  - `detect_task` offline threshold and timeout logic.
+  - `HAL_UART_Transmit` blocking send behavior.
+  - `USBTask` stack size (`512`).
+- Pending:
+  - Build + flash in Keil.
+  - `TELEM_MODE_WIFI` run for 5 minutes and confirm no intermittent DBUS buzzer alarm.

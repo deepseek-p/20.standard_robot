@@ -56,6 +56,8 @@
 - [ai_sessions/2026-02-27_pitch_adaptive_ff_deadlock_fix.md](ai_sessions/2026-02-27_pitch_adaptive_ff_deadlock_fix.md)：Pitch 自适应前馈去角度误差门限，修复装弹工况学习死锁
 - [ai_sessions/2026-02-27_pitch_ff_decouple_telemetry.md](ai_sessions/2026-02-27_pitch_ff_decouple_telemetry.md)：Pitch 自适应前馈解耦硬限幅 + FF观测遥测通道
 - [ai_sessions/2026-02-27_pitch_ff_adaptive_gamma.md](ai_sessions/2026-02-27_pitch_ff_adaptive_gamma.md)：Pitch 自适应前馈误差自适应GAMMA加速收敛
+- [ai_sessions/2026-02-27_usb_telem_mode_mutex_drop_split.md](ai_sessions/2026-02-27_usb_telem_mode_mutex_drop_split.md)：USB/WiFi/关闭 三模式互斥遥测 + drop_cnt 双通道独立计数
+- [ai_sessions/2026-02-27_usb_task_priority_below_normal_dbus_offline_fix.md](ai_sessions/2026-02-27_usb_task_priority_below_normal_dbus_offline_fix.md)：WiFi 遥测模式下降低 USBTask 优先级，修复 DBUS 误离线告警
 - [adr/ADR_TEMPLATE.md](adr/ADR_TEMPLATE.md)：架构决策记录模板
 
 ## 根目录兼容入口

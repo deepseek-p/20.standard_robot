@@ -62,6 +62,22 @@
     - 额外通过 USART1 阻塞发出到 ESP32。
   - `remote_control.c` 的 `sbus_to_usart1()` 在 WiFi 模式下屏蔽，避免与桥接串口用途冲突。
 
+### 3.5 遥测输出模式互斥 + 双 drop 计数（2026-02-27）
+
+- 在 `usb_task.h` 中新增遥测输出模式宏：
+  `TELEM_MODE_NONE / TELEM_MODE_USB / TELEM_MODE_WIFI`，
+  默认 `TELEM_OUTPUT_MODE = TELEM_MODE_USB`。
+- `wifi_bridge.h` 的 `WIFI_BRIDGE_ENABLE` 改为从 `TELEM_OUTPUT_MODE` 自动派生：
+  仅在 `TELEM_MODE_WIFI` 编译启用 WiFi 桥接路径。
+- `usb_task` 遥测发送改为互斥：
+  - USB 模式：仅走 `CDC_Transmit_FS`。
+  - WiFi 模式：仅走 `HAL_UART_Transmit(huart1)`。
+  - NONE 模式：不调用 FireWater 帧发送函数。
+- drop 计数拆分：
+  - `usb_debug_drop_cnt`：USB 发送失败计数。
+  - `wifi_debug_drop_cnt`：WiFi(UART1) 发送失败计数（仅 WiFi 模式编译）。
+  - FireWater 第 2 列 `drop` 在 WiFi 模式输出 `wifi_debug_drop_cnt`，其它模式输出 `usb_debug_drop_cnt`。
+
 ## 2026-02-27 Supplement: Pitch Adaptive Gravity Feedforward Data Path
 
 - `gimbal_motor_relative_angle_control()` 在 pitch 分支先得到速度环输出 `I_pid`，再叠加

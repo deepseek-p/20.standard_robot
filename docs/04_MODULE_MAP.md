@@ -108,6 +108,24 @@
 - External companion projects:
   - `D:/tools/esp32_wifi_bridge`: ESP32 AP + UDP/TCP bridge firmware.
 
+## 2026-02-27 Supplement: Telemetry Mode Mutex + Split Drop Counter
+
+- `application/usb_task.h`:
+  - Replaced `USB_DEBUG_OUTPUT_ENABLE` with output-mode macros:
+    `TELEM_MODE_NONE` / `TELEM_MODE_USB` / `TELEM_MODE_WIFI`,
+    plus configurable `TELEM_OUTPUT_MODE`.
+- `application/wifi_bridge.h`:
+  - Added `#include "usb_task.h"`.
+  - `WIFI_BRIDGE_ENABLE` now derives from `TELEM_OUTPUT_MODE == TELEM_MODE_WIFI`.
+- `application/usb_task.c`:
+  - Added `wifi_debug_drop_cnt` (compiled only when WiFi bridge enabled).
+  - Main telemetry scheduling gate changed to:
+    `#if (TELEM_OUTPUT_MODE != TELEM_MODE_NONE)`.
+  - FireWater `drop` field now reports WiFi drop count in WiFi mode.
+  - Oversize-frame drop accounting now follows active output channel.
+  - Replaced dual-send path with mutually-exclusive send path:
+    USB-only / WiFi-only / no-output.
+
 ## 2026-02-27 Supplement: Pitch Adaptive Gravity Feedforward
 
 - `application/gimbal_task.h`:
