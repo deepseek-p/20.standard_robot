@@ -90,3 +90,59 @@
 - `Src/usbd_cdc_if.c/h`: add SPSC RX ring buffer API (`usb_rx_available` / `usb_rx_read_byte`), and keep `CDC_Receive_FS` as enqueue-only fast path.
 - `Src/freertos.c`: `USBTask` stack increased to improve robustness for long-format telemetry output.
 
+## 2026-02-27 Supplement: Pitch Adaptive Gravity Feedforward
+
+- `application/gimbal_task.h`:
+  - Replaced fixed-K feedforward macros with adaptive LMS parameter macros:
+    `PITCH_FF_GAMMA_*` / `PITCH_FF_*_INIT` / `PITCH_FF_*_MAX` /
+    `PITCH_FF_SPEED_TH` / `PITCH_FF_ERR_TH` / `PITCH_FF_SAT_TH` / `PITCH_FF_ALPHA_DOT_MAX`.
+- `application/gimbal_task.c`:
+  - `gimbal_motor_relative_angle_control` now computes:
+    `I_pid` (speed-loop output) + `I_ff = K_hat*cos(theta)+b_hat`.
+  - Added quasi-static gated LMS update for `K_hat/b_hat` with step-rate limit and clamp.
+  - Removed dependency on `shoot_control.bullet_fired_count` in pitch feedforward path.
+- `application/shoot.c/h`:
+  - Existing `bullet_fired_count` can be retained for future telemetry/strategy use,
+    but no longer participates in pitch feedforward compensation.
+
+## 2026-02-27 Supplement: Adaptive FF Deadlock Fix (7b)
+
+- `application/gimbal_task.h`:
+  - Updated adaptive parameters:
+    `PITCH_FF_GAMMA_K/B` raised from `0.0005` to `0.005`,
+    `PITCH_FF_ALPHA_DOT_MAX` raised from `5.0` to `50.0`.
+  - Removed `PITCH_FF_ERR_TH` macro.
+- `application/gimbal_task.c`:
+  - In pitch adaptive learning gate, removed angle-error condition.
+  - Learning now keeps running in low-speed pinned state, preventing
+    “feedforward not enough -> large angle error -> no update” deadlock chain.
+
+## 2026-02-27 Supplement: Pitch FF Decouple + Telemetry (7c)
+
+- `application/gimbal_task.c`:
+  - Pitch adaptive FF states moved to file scope:
+    `pitch_ff_K_hat` / `pitch_ff_b_hat`.
+  - Added public getters:
+    `get_pitch_ff_K_hat()` / `get_pitch_ff_b_hat()`.
+  - In pitch ENCONDE control path, FF and PID are composed into `I_total`
+    and hard-clamped to `±16000` before `given_current` conversion.
+- `application/gimbal_task.h`:
+  - Declared FF getter APIs for cross-module telemetry consumption.
+- `application/usb_task.c`:
+  - FireWater output extended with 2 FF observability fields:
+    `ff_k_hat` (milli-scale) and `ff_b_hat` (raw).
+
+## 2026-02-27 Supplement: Pitch FF Adaptive Gamma (7d)
+
+- `application/gimbal_task.h`:
+  - Replaced fixed LMS gain macros
+    `PITCH_FF_GAMMA_K/B`
+    with adaptive-gamma macros:
+    `PITCH_FF_GAMMA_BASE` / `PITCH_FF_GAMMA_ERR_GAIN` / `PITCH_FF_GAMMA_MAX`.
+- `application/gimbal_task.c`:
+  - In pitch adaptive learning block, added angle-error-based gamma calculation and clamp.
+  - LMS update now uses:
+    `dk = gamma * error * cos_theta`,
+    `db = gamma * error`.
+  - No change to FF composition clamp, PID parameters, telemetry outputs, or rate-limit safety net.
+

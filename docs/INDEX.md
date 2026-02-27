@@ -49,6 +49,11 @@
 - [ai_sessions/2026-02-25_pitch_encode_ecd_lpf_damping.md](ai_sessions/2026-02-25_pitch_encode_ecd_lpf_damping.md)：Pitch ENCONDE 速度反馈加入一阶低通，抑制 1ms 量化阶梯引发的残余振荡
 - [ai_sessions/2026-02-25_pitch_encode_pid_kp24_ki0_finalize.md](ai_sessions/2026-02-25_pitch_encode_pid_kp24_ki0_finalize.md)：Pitch ENCONDE 角度环参数固化为 Kp=24/Ki=0，消除上电重复调参
 - [ai_sessions/2026-02-26_shoot_fric_can_closed_loop_migration.md](ai_sessions/2026-02-26_shoot_fric_can_closed_loop_migration.md)：摩擦轮从 PWM 开环迁移到 hcan2 双 3508 CAN 闭环速度控制
+- [ai_sessions/2026-02-27_pitch_gravity_feedforward_bullet_count.md](ai_sessions/2026-02-27_pitch_gravity_feedforward_bullet_count.md)：Pitch ENCONDE 重力前馈补偿 + 拨弹发射计数衰减补偿
+- [ai_sessions/2026-02-27_pitch_adaptive_gravity_feedforward.md](ai_sessions/2026-02-27_pitch_adaptive_gravity_feedforward.md)：Pitch ENCONDE 自适应重力前馈（LMS在线估计 K_hat/b_hat）
+- [ai_sessions/2026-02-27_pitch_adaptive_ff_deadlock_fix.md](ai_sessions/2026-02-27_pitch_adaptive_ff_deadlock_fix.md)：Pitch 自适应前馈去角度误差门限，修复装弹工况学习死锁
+- [ai_sessions/2026-02-27_pitch_ff_decouple_telemetry.md](ai_sessions/2026-02-27_pitch_ff_decouple_telemetry.md)：Pitch 自适应前馈解耦硬限幅 + FF观测遥测通道
+- [ai_sessions/2026-02-27_pitch_ff_adaptive_gamma.md](ai_sessions/2026-02-27_pitch_ff_adaptive_gamma.md)：Pitch 自适应前馈误差自适应GAMMA加速收敛
 - [adr/ADR_TEMPLATE.md](adr/ADR_TEMPLATE.md)：架构决策记录模板
 
 ## 根目录兼容入口

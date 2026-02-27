@@ -89,3 +89,55 @@
 - `shoot` state machine now uses real fric RPM readiness check, plus keyboard edge controls: `Q` toggle, `C` high frequency, `F/SHIFT+F` speed trim, `G` trigger reverse.
 - `gimbal_task` now sends both `CAN_cmd_gimbal` and `CAN_cmd_fric`; fault paths send zero to both.
 - Pending: board-side direction check, ready-state transition check, and continuous fire verification.
+
+## 2026-02-27 Pitch Adaptive Gravity Feedforward
+- Status: In Progress
+- Replaced fixed-K gravity feedforward with adaptive LMS model in `gimbal_motor_relative_angle_control`:
+  `I_ff = K_hat * cos(theta) + b_hat`, total current composed after speed-loop output `I_pid`.
+- Added quasi-static gated online update of `K_hat/b_hat` using residual `I_pid`, with:
+  speed/angle/saturation gating, per-cycle max-step limit, and parameter clamp.
+- Removed pitch feedforward dependence on `shoot_control.bullet_fired_count` (counter remains in shoot module but no longer used for compensation).
+- Kept `PITCH_ENCODE_RELATIVE_PID` at verified values: `Kp=24.0`, `Ki=0.0`, `Kd=0.0`, `max_out=10.0`, `max_iout=0.5`.
+- Pending:
+  - Verify empty-mag startup convergence time and post-convergence holding current reduction.
+  - Verify adaptive tracking under variable ammo load and repeated motion disturbance.
+
+## 2026-02-27 Pitch Adaptive Gravity Feedforward Deadlock Fix (7b)
+- Status: In Progress
+- Removed angle-error gate from adaptive learning condition to break pinned-state deadlock:
+  learning now requires only low-speed + non-saturation.
+- Updated adaptive gains for faster recovery after load jump:
+  `PITCH_FF_GAMMA_K/B: 0.0005 -> 0.005`,
+  `PITCH_FF_ALPHA_DOT_MAX: 5.0 -> 50.0`,
+  and removed `PITCH_FF_ERR_TH`.
+- Purpose: avoid “FF不足 -> 推不动 -> 误差大 -> 不学习”的锁死链路 in loaded pitch-down condition.
+- Pending:
+  - Verify loaded fallback recovery time and final steady-state error.
+  - Verify full-stick up/down reachability after adaptive convergence.
+
+## 2026-02-27 Pitch FF Decouple + Telemetry (7c)
+- Status: In Progress
+- In `gimbal_motor_relative_angle_control` (pitch path), FF and PID are now composed into
+  `I_total` and hard-clamped to `±16000` before current output conversion.
+- Adaptive states are now observable at module boundary:
+  `get_pitch_ff_K_hat()` and `get_pitch_ff_b_hat()`.
+- FireWater frame is extended with two FF channels:
+  `55:ff_k_hat` (milli-scale), `56:ff_b_hat` (raw).
+- Pending:
+  - Validate parser alignment on MCP/VOFA+ side for the new 57-column frame.
+  - Verify loaded full-stick up/down reachability and check if `pitch_cur` frequently hits clamp.
+
+## 2026-02-27 Pitch FF Adaptive Gamma (7d)
+- Status: In Progress
+- Replaced fixed LMS learning gains (`PITCH_FF_GAMMA_K/B`) with adaptive gamma schedule:
+  `gamma = PITCH_FF_GAMMA_BASE + PITCH_FF_GAMMA_ERR_GAIN * |angle_err|`,
+  clamped by `PITCH_FF_GAMMA_MAX`.
+- LMS update now uses:
+  `dk = gamma * error * cos_theta`,
+  `db = gamma * error`,
+  while keeping `PITCH_FF_ALPHA_DOT_MAX` step limit unchanged.
+- Purpose: accelerate FF convergence in large-error loaded scenarios and reduce
+  asymmetry between anti-gravity and pro-gravity motion recovery.
+- Pending:
+  - Compare loaded anti-gravity recovery time before/after 7d.
+  - Check post-convergence current ripple and steady-state error near target.
