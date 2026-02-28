@@ -23,6 +23,7 @@
 ## 文档规范
 
 - 改动涉及控制链路时，必须遵守 `docs/00_AI_HANDOFF_RULES.md` 的全部规则
+- 硬件映射：`docs/hardware_map.md`（由 `tools/parse_ioc.py` 从 .ioc 自动生成）
 - 会话记录模板：`docs/ai_sessions/TEMPLATE.md`
 - 当前状态：`docs/ai_sessions/CURRENT_STATE.md`
 
