@@ -35,9 +35,6 @@
 //微动开关IO
 #define BUTTEN_TRIG_PIN HAL_GPIO_ReadPin(BUTTON_TRIG_GPIO_Port, BUTTON_TRIG_Pin)
 
-
-
-
 /**
   * @brief          射击状态机设置，遥控器上拨一次开启，再上拨关闭，下拨1次发射1颗，一直处在下，则持续发射，用于3min准备时间清理子弹
   * @param[in]      void
@@ -65,10 +62,7 @@ static void trigger_motor_turn_back(void);
   */
 static void shoot_bullet_control(void);
 
-
-
 shoot_control_t shoot_control;          //射击数据
-
 
 /**
   * @brief          射击初始化，初始化PID，遥控器指针，电机指针
@@ -77,8 +71,6 @@ shoot_control_t shoot_control;          //射击数据
   */
 void shoot_init(void)
 {
-
-    static const fp32 Trigger_speed_pid[3] = {TRIGGER_ANGLE_PID_KP, TRIGGER_ANGLE_PID_KI, TRIGGER_ANGLE_PID_KD};
     static const fp32 fric_speed_pid[3] = {FRIC_SPEED_PID_KP, FRIC_SPEED_PID_KI, FRIC_SPEED_PID_KD};
 
     shoot_control.shoot_mode = SHOOT_STOP;
@@ -88,31 +80,66 @@ void shoot_init(void)
     shoot_control.shoot_motor_measure = get_trigger_motor_measure_point();
     shoot_control.fric1_motor_measure = get_fric1_motor_measure_point();
     shoot_control.fric2_motor_measure = get_fric2_motor_measure_point();
+
     //初始化PID
-    PID_init(&shoot_control.trigger_motor_pid, PID_POSITION, Trigger_speed_pid, TRIGGER_READY_PID_MAX_OUT, TRIGGER_READY_PID_MAX_IOUT);
+    PID_enhanced_init(&shoot_control.trigger_pos_pid,
+                      TRIGGER_POS_KP,
+                      TRIGGER_POS_KI,
+                      TRIGGER_POS_KD,
+                      TRIGGER_POS_MAX_OUT,
+                      TRIGGER_POS_MAX_IOUT,
+                      TRIGGER_POS_DEADZONE,
+                      TRIGGER_POS_I_L,
+                      TRIGGER_POS_I_U,
+                      TRIGGER_POS_RC_DF);
+    PID_enhanced_init(&shoot_control.trigger_spd_pid,
+                      TRIGGER_SPD_KP,
+                      TRIGGER_SPD_KI,
+                      TRIGGER_SPD_KD,
+                      TRIGGER_SPD_MAX_OUT,
+                      TRIGGER_SPD_MAX_IOUT,
+                      TRIGGER_SPD_DEADZONE,
+                      TRIGGER_SPD_I_L,
+                      TRIGGER_SPD_I_U,
+                      TRIGGER_SPD_RC_DF);
     PID_init(&shoot_control.fric1_pid, PID_POSITION, fric_speed_pid, FRIC_PID_MAX_OUT, FRIC_PID_MAX_IOUT);
     PID_init(&shoot_control.fric2_pid, PID_POSITION, fric_speed_pid, FRIC_PID_MAX_OUT, FRIC_PID_MAX_IOUT);
-    //更新数据
-    shoot_feedback_update();
 
     shoot_control.ecd_count = 0;
+    shoot_control.trigger_ecd_total_count = 0;
+    shoot_feedback_update();
+
     shoot_control.bullet_fired_count = 0;
     shoot_control.angle = shoot_control.shoot_motor_measure->ecd * MOTOR_ECD_TO_ANGLE;
     shoot_control.given_current = 0;
     shoot_control.move_flag = 0;
-    shoot_control.set_angle = shoot_control.angle;
+    shoot_control.reverse_flag = 0;
     shoot_control.speed = 0.0f;
     shoot_control.speed_set = 0.0f;
+    shoot_control.trigger_speed_set = 0.0f;
     shoot_control.key_time = 0;
+
+    shoot_control.trigger_ecd_set = shoot_control.trigger_ecd_fdb;
+    shoot_control.trigger_ecd_last_fire = shoot_control.trigger_ecd_fdb;
+
+    shoot_control.block_time = 0;
+    shoot_control.reverse_time = 0;
 
     shoot_control.fric_speed_set = 0.0f;
     shoot_control.fric_speed_base = FRIC_SPEED_LOW;
     shoot_control.fric1_given_current = 0;
     shoot_control.fric2_given_current = 0;
+
+    shoot_control.heat_limit = 0;
+    shoot_control.local_heat = 0.0f;
+    shoot_control.referee_heat = 0;
+    shoot_control.burst_mode = 0;
+
     shoot_control.high_freq_flag = 0;
     shoot_control.last_key_c = 0;
     shoot_control.last_key_q = 0;
     shoot_control.last_key_f = 0;
+    shoot_control.last_key_r = 0;
 }
 
 /**
@@ -122,10 +149,29 @@ void shoot_init(void)
   */
 int16_t shoot_control_loop(void)
 {
+    uint16_t referee_heat_now;
 
-    shoot_set_mode();        //设置状态机
     shoot_feedback_update(); //更新数据
 
+    // 本地热量预测每周期冷却（1ms）
+    if (shoot_control.local_heat > 0.0f)
+    {
+        shoot_control.local_heat -= HEAT_COOL_RATE / 1000.0f;
+        if (shoot_control.local_heat < 0.0f)
+        {
+            shoot_control.local_heat = 0.0f;
+        }
+    }
+
+    // 裁判系统热量同步用于校准预测值
+    get_shoot_heat0_limit_and_heat0(&shoot_control.heat_limit, &referee_heat_now);
+    if (referee_heat_now != shoot_control.referee_heat)
+    {
+        shoot_control.referee_heat = referee_heat_now;
+        shoot_control.local_heat = (fp32)referee_heat_now;
+    }
+
+    shoot_set_mode();        //设置状态机
 
     if (shoot_control.shoot_mode == SHOOT_STOP)
     {
@@ -143,6 +189,7 @@ int16_t shoot_control_loop(void)
         {
             //设置拨弹轮的拨动速度,并开启堵转反转处理
             shoot_control.trigger_speed_set = READY_TRIGGER_SPEED;
+            shoot_control.speed_set = shoot_control.trigger_speed_set;
             trigger_motor_turn_back();
         }
         else
@@ -150,18 +197,16 @@ int16_t shoot_control_loop(void)
             shoot_control.trigger_speed_set = 0.0f;
             shoot_control.speed_set = 0.0f;
         }
-        shoot_control.trigger_motor_pid.max_out = TRIGGER_READY_PID_MAX_OUT;
-        shoot_control.trigger_motor_pid.max_iout = TRIGGER_READY_PID_MAX_IOUT;
+        shoot_control.trigger_ecd_set = shoot_control.trigger_ecd_fdb;
     }
     else if (shoot_control.shoot_mode == SHOOT_READY)
     {
         //设置拨弹轮的速度
         shoot_control.speed_set = 0.0f;
+        shoot_control.trigger_ecd_set = shoot_control.trigger_ecd_fdb;
     }
     else if (shoot_control.shoot_mode == SHOOT_BULLET)
     {
-        shoot_control.trigger_motor_pid.max_out = TRIGGER_BULLET_PID_MAX_OUT;
-        shoot_control.trigger_motor_pid.max_iout = TRIGGER_BULLET_PID_MAX_IOUT;
         shoot_bullet_control();
     }
     else if (shoot_control.shoot_mode == SHOOT_CONTINUE_BULLET)
@@ -175,11 +220,26 @@ int16_t shoot_control_loop(void)
         {
             shoot_control.trigger_speed_set = CONTINUE_TRIGGER_SPEED;
         }
+
+        shoot_control.speed_set = shoot_control.trigger_speed_set;
         trigger_motor_turn_back();
+
+        while ((shoot_control.trigger_ecd_fdb - shoot_control.trigger_ecd_last_fire) >= TRIGGER_ONEGRID)
+        {
+            shoot_control.trigger_ecd_last_fire += TRIGGER_ONEGRID;
+            shoot_control.bullet_fired_count++;
+            shoot_control.local_heat += HEAT_PER_BULLET;
+        }
     }
     else if (shoot_control.shoot_mode == SHOOT_DONE)
     {
         shoot_control.speed_set = 0.0f;
+        shoot_control.trigger_ecd_set = shoot_control.trigger_ecd_fdb;
+    }
+
+    if (shoot_control.shoot_mode != SHOOT_CONTINUE_BULLET)
+    {
+        shoot_control.trigger_ecd_last_fire = shoot_control.trigger_ecd_fdb;
     }
 
     if ((shoot_control.shoot_mode != SHOOT_STOP) && (shoot_control.shoot_rc->key.v & SHOOT_REVERSE_KEYBOARD))
@@ -195,9 +255,8 @@ int16_t shoot_control_loop(void)
     else
     {
         shoot_laser_on(); //激光开启
-        //计算拨弹轮电机PID
-        PID_calc(&shoot_control.trigger_motor_pid, shoot_control.speed, shoot_control.speed_set);
-        shoot_control.given_current = (int16_t)(shoot_control.trigger_motor_pid.out);
+        //计算拨弹轮电机速度环PID
+        shoot_control.given_current = (int16_t)PID_enhanced_calc(&shoot_control.trigger_spd_pid, shoot_control.speed, shoot_control.speed_set);
         if (shoot_control.shoot_mode < SHOOT_READY_BULLET)
         {
             shoot_control.given_current = 0;
@@ -237,6 +296,7 @@ static void shoot_set_mode(void)
     bool_t key_q;
     bool_t key_c;
     bool_t key_f;
+    bool_t key_r;
 
     //上拨判断， 一次开启，再次关闭
     if ((switch_is_up(shoot_control.shoot_rc->rc.s[SHOOT_RC_MODE_CHANNEL]) && !switch_is_up(last_s) && shoot_control.shoot_mode == SHOOT_STOP))
@@ -251,6 +311,12 @@ static void shoot_set_mode(void)
     key_q = (shoot_control.shoot_rc->key.v & SHOOT_TOGGLE_KEYBOARD) ? 1 : 0;
     key_c = (shoot_control.shoot_rc->key.v & SHOOT_HIGH_FREQ_KEYBOARD) ? 1 : 0;
     key_f = (shoot_control.shoot_rc->key.v & SHOOT_FRIC_DEC_KEYBOARD) ? 1 : 0;
+    key_r = (shoot_control.shoot_rc->key.v & SHOOT_BURST_KEYBOARD) ? 1 : 0;
+
+    if (key_r && !shoot_control.last_key_r)
+    {
+        shoot_control.burst_mode = !shoot_control.burst_mode;
+    }
 
     if (switch_is_mid(shoot_control.shoot_rc->rc.s[SHOOT_RC_MODE_CHANNEL]))
     {
@@ -281,14 +347,13 @@ static void shoot_set_mode(void)
             {
                 shoot_control.fric_speed_base -= FRIC_SPEED_ADJUST_STEP;
             }
-
-
         }
     }
 
     shoot_control.last_key_q = key_q;
     shoot_control.last_key_c = key_c;
     shoot_control.last_key_f = key_f;
+    shoot_control.last_key_r = key_r;
 
     if (shoot_control.shoot_mode == SHOOT_READY_FRIC
         && fabs(shoot_control.fric1_motor_measure->speed_rpm - shoot_control.fric_speed_set) < FRIC_READY_SPEED_ERR
@@ -330,8 +395,6 @@ static void shoot_set_mode(void)
         }
     }
 
-
-
     if (shoot_control.shoot_mode > SHOOT_READY_FRIC)
     {
         //鼠标长按一直进入射击状态 保持连发
@@ -345,14 +408,19 @@ static void shoot_set_mode(void)
         }
     }
 
-    get_shoot_heat0_limit_and_heat0(&shoot_control.heat_limit, &shoot_control.heat);
-    if (!toe_is_error(REFEREE_TOE) && (shoot_control.heat + SHOOT_HEAT_REMAIN_VALUE > shoot_control.heat_limit))
+#if SHOOT_DEBUG_MODE == 0
     {
-        if (shoot_control.shoot_mode == SHOOT_BULLET || shoot_control.shoot_mode == SHOOT_CONTINUE_BULLET)
+        fp32 effective_limit = shoot_control.burst_mode ? HEAT_LIMIT_BURST : HEAT_LIMIT_SAFE;
+        if (shoot_control.local_heat + HEAT_PER_BULLET > effective_limit)
         {
-            shoot_control.shoot_mode = SHOOT_READY_BULLET;
+            if (shoot_control.shoot_mode == SHOOT_BULLET || shoot_control.shoot_mode == SHOOT_CONTINUE_BULLET)
+            {
+                shoot_control.shoot_mode = SHOOT_READY_BULLET;
+            }
         }
     }
+#endif
+
     //如果云台状态是 无力状态，就关闭射击
     if (gimbal_cmd_to_shoot_stop())
     {
@@ -368,7 +436,7 @@ static void shoot_set_mode(void)
   */
 static void shoot_feedback_update(void)
 {
-
+    int16_t ecd_delta;
     static fp32 speed_fliter_1 = 0.0f;
     static fp32 speed_fliter_2 = 0.0f;
     static fp32 speed_fliter_3 = 0.0f;
@@ -382,14 +450,18 @@ static void shoot_feedback_update(void)
     speed_fliter_3 = speed_fliter_2 * fliter_num[0] + speed_fliter_1 * fliter_num[1] + (shoot_control.shoot_motor_measure->speed_rpm * MOTOR_RPM_TO_SPEED) * fliter_num[2];
     shoot_control.speed = speed_fliter_3;
 
+    ecd_delta = shoot_control.shoot_motor_measure->ecd - shoot_control.shoot_motor_measure->last_ecd;
+
     //电机圈数重置， 因为输出轴旋转一圈， 电机轴旋转 36圈，将电机轴数据处理成输出轴数据，用于控制输出轴角度
-    if (shoot_control.shoot_motor_measure->ecd - shoot_control.shoot_motor_measure->last_ecd > HALF_ECD_RANGE)
+    if (ecd_delta > HALF_ECD_RANGE)
     {
         shoot_control.ecd_count--;
+        shoot_control.trigger_ecd_total_count--;
     }
-    else if (shoot_control.shoot_motor_measure->ecd - shoot_control.shoot_motor_measure->last_ecd < -HALF_ECD_RANGE)
+    else if (ecd_delta < -HALF_ECD_RANGE)
     {
         shoot_control.ecd_count++;
+        shoot_control.trigger_ecd_total_count++;
     }
 
     if (shoot_control.ecd_count == FULL_COUNT)
@@ -403,6 +475,8 @@ static void shoot_feedback_update(void)
 
     //计算输出轴角度
     shoot_control.angle = (shoot_control.ecd_count * ECD_RANGE + shoot_control.shoot_motor_measure->ecd) * MOTOR_ECD_TO_ANGLE;
+    shoot_control.trigger_ecd_fdb = (fp32)(shoot_control.trigger_ecd_total_count * ECD_RANGE + shoot_control.shoot_motor_measure->ecd);
+
     //微动开关
     shoot_control.key = BUTTEN_TRIG_PIN;
     //鼠标按键
@@ -410,6 +484,7 @@ static void shoot_feedback_update(void)
     shoot_control.last_press_r = shoot_control.press_r;
     shoot_control.press_l = shoot_control.shoot_rc->mouse.press_l;
     shoot_control.press_r = shoot_control.shoot_rc->mouse.press_r;
+
     //长按计时
     if (shoot_control.press_l)
     {
@@ -438,7 +513,6 @@ static void shoot_feedback_update(void)
     //射击开关下档时间计时
     if (shoot_control.shoot_mode != SHOOT_STOP && switch_is_down(shoot_control.shoot_rc->rc.s[SHOOT_RC_MODE_CHANNEL]))
     {
-
         if (shoot_control.rc_s_time < RC_S_LONG_TIME)
         {
             shoot_control.rc_s_time++;
@@ -452,13 +526,26 @@ static void shoot_feedback_update(void)
 
 static void trigger_motor_turn_back(void)
 {
-    if (shoot_control.block_time < BLOCK_TIME)
+    fp32 fallback_speed;
+
+    fallback_speed = fabs(shoot_control.trigger_speed_set);
+    if (fallback_speed < 1e-6f)
     {
-        shoot_control.speed_set = shoot_control.trigger_speed_set;
+        fallback_speed = REVERSE_SPEED_LIMIT;
     }
-    else
+
+    if (shoot_control.block_time >= BLOCK_TIME)
     {
-        shoot_control.speed_set = -shoot_control.trigger_speed_set;
+        shoot_control.speed_set = -fallback_speed;
+
+        if (!shoot_control.reverse_flag)
+        {
+            shoot_control.reverse_flag = 1;
+            if (shoot_control.move_flag)
+            {
+                shoot_control.trigger_ecd_set -= TRIGGER_ONEGRID;
+            }
+        }
     }
 
     if (fabs(shoot_control.speed) < BLOCK_TRIGGER_SPEED && shoot_control.block_time < BLOCK_TIME)
@@ -473,6 +560,7 @@ static void trigger_motor_turn_back(void)
     else
     {
         shoot_control.block_time = 0;
+        shoot_control.reverse_time = 0;
     }
 }
 
@@ -483,29 +571,39 @@ static void trigger_motor_turn_back(void)
   */
 static void shoot_bullet_control(void)
 {
+    fp32 pos_err;
 
-    //每次拨动 1/4PI的角度
     if (shoot_control.move_flag == 0)
     {
-        shoot_control.set_angle = rad_format(shoot_control.angle + PI_TEN);
+        shoot_control.trigger_ecd_set += TRIGGER_ONEGRID;
         shoot_control.move_flag = 1;
     }
+
     if (shoot_control.key == SWITCH_TRIGGER_OFF)
     {
-
         shoot_control.shoot_mode = SHOOT_DONE;
     }
-    //到达角度判断
-    if (rad_format(shoot_control.set_angle - shoot_control.angle) > 0.05f)
+
+    shoot_control.speed_set = PID_enhanced_calc(&shoot_control.trigger_pos_pid, shoot_control.trigger_ecd_fdb, shoot_control.trigger_ecd_set);
+    pos_err = shoot_control.trigger_ecd_set - shoot_control.trigger_ecd_fdb;
+
+    if (fabs(pos_err) >= TRIGGER_POS_THRESHOLD)
     {
-        //没到达一直设置旋转速度
-        shoot_control.trigger_speed_set = TRIGGER_SPEED;
         trigger_motor_turn_back();
     }
     else
     {
-        shoot_control.bullet_fired_count++;
+        if (!shoot_control.reverse_flag)
+        {
+            shoot_control.bullet_fired_count++;
+            shoot_control.local_heat += HEAT_PER_BULLET;
+            shoot_control.trigger_ecd_last_fire = shoot_control.trigger_ecd_fdb;
+        }
+
         shoot_control.move_flag = 0;
+        shoot_control.reverse_flag = 0;
+        shoot_control.block_time = 0;
+        shoot_control.reverse_time = 0;
     }
 }
 

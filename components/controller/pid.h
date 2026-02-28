@@ -94,5 +94,34 @@ extern fp32 PID_calc(pid_type_def *pid, fp32 ref, fp32 set);
   * @retval         none
   */
 extern void PID_clear(pid_type_def *pid);
+typedef struct
+{
+    fp32 Kp;
+    fp32 Ki;
+    fp32 Kd;
+
+    fp32 max_out;
+    fp32 max_iout;
+
+    fp32 dead_zone;
+    fp32 I_L;
+    fp32 I_U;
+    fp32 RC_DF;
+
+    fp32 set;
+    fp32 fdb;
+    fp32 out;
+    fp32 out_last;
+    fp32 Pout;
+    fp32 Iout;
+    fp32 Dout;
+    fp32 Dout_last;
+    fp32 error[2];
+} pid_enhanced_t;
+
+extern void PID_enhanced_init(pid_enhanced_t *pid, fp32 kp, fp32 ki, fp32 kd, fp32 max_out, fp32 max_iout,
+                              fp32 dead_zone, fp32 I_L, fp32 I_U, fp32 RC_DF);
+extern fp32 PID_enhanced_calc(pid_enhanced_t *pid, fp32 ref, fp32 set);
+extern void PID_enhanced_clear(pid_enhanced_t *pid);
 
 #endif

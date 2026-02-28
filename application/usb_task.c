@@ -113,6 +113,12 @@ extern shoot_control_t shoot_control;
  * 54:trigger_cur   -> trigger motor given current
  * 55:ff_k_hat      -> pitch adaptive feedforward K_hat (milli-scale)
  * 56:ff_b_hat      -> pitch adaptive feedforward b_hat (raw, no scale)
+ * 57:trigger_spd   -> trigger speed feedback (milli-scale)
+ * 58:trigger_spd_set -> trigger speed setpoint (milli-scale)
+ * 59:trigger_ecd_fdb -> trigger continuous encoder feedback (raw)
+ * 60:trigger_ecd_set -> trigger continuous encoder setpoint (raw)
+ * 61:local_heat    -> local shoot heat predictor (milli-scale)
+ * 62:bullet_cnt    -> local bullet fired counter (raw)
  */
 
 static uint8_t usb_buf[USB_DEBUG_FRAME_MAX_LEN];
@@ -180,8 +186,10 @@ static bool_t usb_cmd_get_target_param(usb_pid_target_e target, usb_pid_param_e 
 static bool_t usb_cmd_set_target_param(usb_pid_target_e target, usb_pid_param_e param, fp32 value);
 static bool_t usb_cmd_get_gimbal_param(gimbal_PID_t *pid, usb_pid_param_e param, fp32 *value);
 static bool_t usb_cmd_get_common_param(pid_type_def *pid, usb_pid_param_e param, fp32 *value);
+static bool_t usb_cmd_get_enhanced_param(pid_enhanced_t *pid, usb_pid_param_e param, fp32 *value);
 static bool_t usb_cmd_set_gimbal_param(gimbal_PID_t *pid, usb_pid_param_e param, fp32 value);
 static bool_t usb_cmd_set_common_param(pid_type_def *pid, usb_pid_param_e param, fp32 value);
+static bool_t usb_cmd_set_enhanced_param(pid_enhanced_t *pid, usb_pid_param_e param, fp32 value);
 static void usb_cmd_replyf(const char *format, ...);
 #if WIFI_BRIDGE_ENABLE
 static void wifi_uart1_init(void);
@@ -739,7 +747,7 @@ static bool_t usb_cmd_get_target_param(usb_pid_target_e target, usb_pid_param_e 
     case USB_PID_TARGET_FRIC_SPEED:
         return usb_cmd_get_common_param(&shoot_control.fric1_pid, param, value);
     case USB_PID_TARGET_TRIGGER:
-        return usb_cmd_get_common_param(&shoot_control.trigger_motor_pid, param, value);
+        return usb_cmd_get_enhanced_param(&shoot_control.trigger_spd_pid, param, value);
     default:
         return 0;
     }
@@ -790,7 +798,7 @@ static bool_t usb_cmd_set_target_param(usb_pid_target_e target, usb_pid_param_e 
         }
         return usb_cmd_set_common_param(&shoot_control.fric2_pid, param, value);
     case USB_PID_TARGET_TRIGGER:
-        return usb_cmd_set_common_param(&shoot_control.trigger_motor_pid, param, value);
+        return usb_cmd_set_enhanced_param(&shoot_control.trigger_spd_pid, param, value);
     default:
         return 0;
     }
@@ -858,6 +866,37 @@ static bool_t usb_cmd_get_common_param(pid_type_def *pid, usb_pid_param_e param,
     return 1;
 }
 
+static bool_t usb_cmd_get_enhanced_param(pid_enhanced_t *pid, usb_pid_param_e param, fp32 *value)
+{
+    if ((pid == NULL) || (value == NULL))
+    {
+        return 0;
+    }
+
+    switch (param)
+    {
+    case USB_PID_PARAM_KP:
+        *value = pid->Kp;
+        break;
+    case USB_PID_PARAM_KI:
+        *value = pid->Ki;
+        break;
+    case USB_PID_PARAM_KD:
+        *value = pid->Kd;
+        break;
+    case USB_PID_PARAM_MAX_OUT:
+        *value = pid->max_out;
+        break;
+    case USB_PID_PARAM_MAX_IOUT:
+        *value = pid->max_iout;
+        break;
+    default:
+        return 0;
+    }
+
+    return 1;
+}
+
 static bool_t usb_cmd_set_gimbal_param(gimbal_PID_t *pid, usb_pid_param_e param, fp32 value)
 {
     if (pid == NULL)
@@ -890,6 +929,37 @@ static bool_t usb_cmd_set_gimbal_param(gimbal_PID_t *pid, usb_pid_param_e param,
 }
 
 static bool_t usb_cmd_set_common_param(pid_type_def *pid, usb_pid_param_e param, fp32 value)
+{
+    if (pid == NULL)
+    {
+        return 0;
+    }
+
+    switch (param)
+    {
+    case USB_PID_PARAM_KP:
+        pid->Kp = value;
+        break;
+    case USB_PID_PARAM_KI:
+        pid->Ki = value;
+        break;
+    case USB_PID_PARAM_KD:
+        pid->Kd = value;
+        break;
+    case USB_PID_PARAM_MAX_OUT:
+        pid->max_out = value;
+        break;
+    case USB_PID_PARAM_MAX_IOUT:
+        pid->max_iout = value;
+        break;
+    default:
+        return 0;
+    }
+
+    return 1;
+}
+
+static bool_t usb_cmd_set_enhanced_param(pid_enhanced_t *pid, usb_pid_param_e param, fp32 value)
 {
     if (pid == NULL)
     {
@@ -1125,7 +1195,7 @@ static bool_t usb_emit_firewater_frame(uint32_t now_ms)
     seq = usb_debug_next_seq();
 
     len = snprintf((char *)usb_buf, USB_DEBUG_FRAME_MAX_LEN,
-                   "%lu,%lu,%lu,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld\r\n",
+                   "%lu,%lu,%lu,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld\r\n",
                    now_ms,
                    seq,
 #if WIFI_BRIDGE_ENABLE
@@ -1186,7 +1256,13 @@ static bool_t usb_emit_firewater_frame(uint32_t now_ms)
                     usb_debug_masked_i32(USB_DBG_CH_SHOOT, (int32_t)shoot_control.fric2_given_current),
                     usb_debug_masked_i32(USB_DBG_CH_SHOOT, (int32_t)shoot_control.given_current),
                     usb_debug_fp32_to_milli(get_pitch_ff_K_hat()),
-                    (int32_t)(get_pitch_ff_b_hat()));
+                    (int32_t)(get_pitch_ff_b_hat()),
+                    usb_debug_masked_fp32_milli(USB_DBG_CH_SHOOT, shoot_control.speed),
+                    usb_debug_masked_fp32_milli(USB_DBG_CH_SHOOT, shoot_control.speed_set),
+                    usb_debug_masked_i32(USB_DBG_CH_SHOOT, (int32_t)shoot_control.trigger_ecd_fdb),
+                    usb_debug_masked_i32(USB_DBG_CH_SHOOT, (int32_t)shoot_control.trigger_ecd_set),
+                    usb_debug_masked_fp32_milli(USB_DBG_CH_SHOOT, shoot_control.local_heat),
+                    usb_debug_masked_i32(USB_DBG_CH_SHOOT, (int32_t)shoot_control.bullet_fired_count));
 
     if (len <= 0)
     {
