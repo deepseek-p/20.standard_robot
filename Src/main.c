@@ -51,6 +51,7 @@
 #include "referee_usart_task.h"
 #include "usb_task.h"
 #include "voltage_task.h"
+#include "uart_mode.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -146,7 +147,16 @@ int main(void)
     delay_init();
     cali_param_init();
     remote_control_init();
+#if USART1_VT03
+    // VT03 on USART1: no UART1 DMA TX init; use RXNE interrupt path.
+    CLEAR_BIT(huart1.Instance->CR3, USART_CR3_DMAR);
+    CLEAR_BIT(huart1.Instance->CR3, USART_CR3_DMAT);
+    __HAL_UART_ENABLE_IT(&huart1, UART_IT_RXNE);
+    HAL_NVIC_SetPriority(USART1_IRQn, 5, 0);
+    HAL_NVIC_EnableIRQ(USART1_IRQn);
+#else
     usart1_tx_dma_init();
+#endif
   /* USER CODE END 2 */
 
   /* Call init function for freertos objects (in freertos.c) */

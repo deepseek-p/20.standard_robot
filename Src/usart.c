@@ -21,6 +21,7 @@
 #include "usart.h"
 
 /* USER CODE BEGIN 0 */
+#include "uart_mode.h"
 
 /* USER CODE END 0 */
 
@@ -38,7 +39,11 @@ void MX_USART1_UART_Init(void)
 {
 
   huart1.Instance = USART1;
+#if USART1_VT03
+  huart1.Init.BaudRate = 921600;
+#else
   huart1.Init.BaudRate = 115200;
+#endif
   huart1.Init.WordLength = UART_WORDLENGTH_8B;
   huart1.Init.StopBits = UART_STOPBITS_1;
   huart1.Init.Parity = UART_PARITY_NONE;
@@ -76,7 +81,11 @@ void MX_USART6_UART_Init(void)
 {
 
   huart6.Instance = USART6;
+#if USART6_VT03
+  huart6.Init.BaudRate = 921600;
+#else
   huart6.Init.BaudRate = 115200;
+#endif
   huart6.Init.WordLength = UART_WORDLENGTH_8B;
   huart6.Init.StopBits = UART_STOPBITS_1;
   huart6.Init.Parity = UART_PARITY_NONE;
