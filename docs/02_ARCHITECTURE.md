@@ -119,6 +119,24 @@
   `PITCH_FF_SPEED_TH`、`PITCH_FF_SAT_TH`、`PITCH_FF_ALPHA_DOT_MAX` 不变。
 - 目标：大误差工况（如满仓逆重力追目标）提高学习速度，小误差稳态段降低学习激进度以抑制抖动。
 
+## 2026-02-28 Supplement: Shoot Trigger Dual-Loop + Local Heat Predictor
+
+- `shoot_control_loop()` 的拨轮控制从单环速度 PID 改为双环串级：
+  - 外环：位置环 `trigger_pos_pid` 输出 `speed_set`
+  - 内环：速度环 `trigger_spd_pid` 输出 `given_current`
+- `shoot_feedback_update()` 在原 `ecd_count` 基础上新增连续编码器反馈 `trigger_ecd_fdb`，
+  供位置环与连发计弹使用。
+- 单发路径 `shoot_bullet_control()` 改为“目标位置 + 到位阈值”判定；
+  堵转路径继续复用 `trigger_motor_turn_back()`，并在回退时同步回滚目标位置。
+- 新增本地热量预测状态 `local_heat`：
+  - 每 1ms 按 `HEAT_COOL_RATE` 冷却
+  - 发弹成功按 `HEAT_PER_BULLET` 累加
+  - 裁判热量更新时用 `get_shoot_heat0_limit_and_heat0()` 校准
+- `shoot_set_mode()` 新增 `R` 键爆发模式切换，比赛模式下按
+  `HEAT_LIMIT_SAFE/HEAT_LIMIT_BURST` 对单发/连发统一门控。
+- 在线调参链路同步更新：`usb_task` 的 `target=trigger` 参数读写映射到
+  新速度环 `trigger_spd_pid`。
+
 ## 4. 中断与任务耦合点（高风险）
 
 - CAN 接收中断：`HAL_CAN_RxFifo0MsgPendingCallback` 写电机反馈并触发 `detect_hook`。
@@ -133,3 +151,42 @@
 - 高频控制任务：`gimbal_task`（1ms）、`chassis_task`（2ms）。
 - 事件驱动任务：`INS_task`（主循环由通知唤醒，不是固定 `osDelay` 周期）。
 - 栈水位观测已在部分任务中启用：`calibrate/chassis/detect/gimbal`（`uxTaskGetStackHighWaterMark`）。
+
+## 2026-02-28 Supplement: VT03 Link + UART Three-Mode Switching
+
+- Added compile-time UART assignment hub: `application/uart_mode.h`.
+- Added three selectable modes:
+  - `UART_MODE_DEBUG_WIFI`: `USART6=referee(115200)`, `USART1=WiFi(115200)`.
+  - `UART_MODE_DEBUG_VT03`: `USART6=VT03(921600)`, `USART1=WiFi(115200)`.
+  - `UART_MODE_COMPETITION`: `USART6=referee(115200)`, `USART1=VT03(921600)`.
+- Added VT03 parser module:
+  - `application/vt03_link.c/h` implements RXNE byte-stream state machine and frame CRC16 validation.
+  - Parser writes decoded values into existing global `rc_ctrl` (`RC_ctrl_t`) to reuse upper control chain.
+- `referee_usart_task` now has a mode-dependent path:
+  - `USART6_REFEREE`: original DMA double-buffer + IDLE interrupt + FIFO unpack.
+  - `USART6_VT03`: RXNE byte ISR path feeding `vt03_parse_byte`.
+- `USART1_IRQHandler` is mode-dependent:
+  - `USART1_VT03`: RXNE byte ISR path feeding `vt03_parse_byte`.
+  - `WIFI_BRIDGE_ENABLE`: original UART1 ring-buffer for WiFi command ingress.
+- Added compile-time conflict guard:
+  - in competition mode, `TELEM_OUTPUT_MODE` cannot be `TELEM_MODE_WIFI` because USART1 is occupied by VT03.
+
+## 2026-03-01 Supplement: VT03 Keyboard Action Layer
+
+- Added a centralized key-action module: `application/keyboard_action.c/h`.
+- Runtime path:
+  - `gimbal_task` (1ms loop) calls `keyboard_action_update()` once per cycle.
+  - `keyboard_action` samples `rc_ctrl.key.v` and VT13 extension keys (`fn_1/fn_2/pause/trigger/dial`).
+  - Module outputs normalized command pulses/state via `keyboard_cmd_t`.
+- Consumer split:
+  - `shoot.c` consumes `shoot_toggle/high_freq_toggle/burst_toggle/fric_speed_adj/reverse_trigger/vt03_trigger`.
+  - `chassis_behaviour.c` consumes `kb_chassis_mode` (CTRL toggle state).
+  - `gimbal_behaviour.c` consumes `kb_zero_force` (Z toggle state).
+- Shoot path update (v5):
+  - `SHOOT_READY_BULLET` no longer auto-drives trigger-wheel speed; it is now a static pre-fire standby state.
+  - fire edge (`trigger/mouse/down-switch`) can directly enter `SHOOT_BULLET` from `SHOOT_READY_BULLET`.
+- Safety path update:
+  - `gimbal_task/chassis_task/gimbal_behaviour` offline checks now treat control source as dual-input:
+    trigger zero-current/zero-force only when `DBUS` and `VT03` are both offline.
+- Observability update:
+  - `usb_task` extends `event_bits` with `bit8..bit20` to expose VT13 raw key states and keyboard-action pulses for rapid mapping diagnosis.

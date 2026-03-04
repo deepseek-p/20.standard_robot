@@ -32,7 +32,7 @@
 | `application/chassis_task.c` / `application/chassis_task.h` | 底盘控制主任务（运动解算、PID、CAN 输出，导出调试快照） | `chassis_task`、`chassis_move_t`、`chassis_rc_to_control_vector`、`get_chassis_debug_snapshot` |
 | `application/chassis_behaviour.c` / `application/chassis_behaviour.h` | 底盘行为状态机（官方模式 + HUST 模式映射） | `chassis_behaviour_mode_set`、`chassis_behaviour_control_set`、`CHASSIS_HUST_SELF_PROTECT`；当前遥控映射（step1 回切）：`s0=UP -> HUST_SelfProtect`、`s0=MID -> HUST_Act(底盘 FOLLOW_GIMBAL_YAW)`、`s0=DOWN -> CHASSIS_NO_MOVE`；`HUST_SelfProtect` 在行为函数内已增加基于 `relative_angle` 的平移坐标补偿，避免自旋时推杆轨迹画圆 |
 | `application/chassis_power_control.c` / `application/chassis_power_control.h` | 底盘功率限流（参考裁判系统功率/缓冲） | `chassis_power_control`、`get_chassis_power_and_buffer` |
-| `application/shoot.c` / `application/shoot.h` | 射击状态机与拨弹/摩擦轮控制 | `shoot_init`、`shoot_control_loop`、`shoot_get_fric_current`、`shoot_mode_e`；摩擦轮已从 PWM ramp 改为双 3508（`hcan2 0x201/0x202`）速度闭环，`Q/C/F/SHIFT/G` 键位用于开关/高射频/弹速微调/手动反转 |
+| `application/shoot.c` / `application/shoot.h` | 射击状态机与拨弹/摩擦轮控制 | `shoot_init`、`shoot_control_loop`、`shoot_get_fric_current`、`shoot_mode_e`；摩擦轮为双 3508（`hcan2 0x201/0x202`）速度闭环；拨轮为“位置环+速度环”双环控制；支持 `Q/C/F/SHIFT/G/R`（开关/高射频/弹速微调/手动反转/爆发模式）；比赛模式下启用本地热量预测门控 |
 | `application/referee.c` / `application/referee.h` | 裁判系统数据结构维护与查询接口 | `referee_data_solve`、`get_robot_id`、`get_shoot_heat0_limit_and_heat0` |
 | `application/referee_usart_task.c` / `application/referee_usart_task.h` | 裁判系统串口 DMA 接收与协议解包任务（WiFi 模式下承载 USART1 RXNE 环形缓冲） | `referee_usart_task`、`USART6_IRQHandler`、`USART1_IRQHandler`、`referee_unpack_fifo_data`、`uart1_rx_available/read` |
 | `application/INS_task.c` / `application/INS_task.h` | IMU 采样、姿态解算、温控与数据发布 | `INS_task`、`get_INS_angle_point`、`HAL_GPIO_EXTI_Callback`、`DMA2_Stream2_IRQHandler` |
@@ -52,7 +52,7 @@
 | `components/devices/OLED.*` | OLED 图形与字符显示驱动（I2C + GRAM 缓冲） |
 | `components/algorithm/AHRS_middleware.*` | 姿态解算中间层，封装数学函数与平台相关能力（高度/纬度等） |
 | `components/algorithm/AHRS.*` | 姿态解算核心接口（四元数更新、欧拉角计算） |
-| `components/controller/pid.*` | 通用 PID 控制器实现 |
+| `components/controller/pid.*` | PID 控制器实现（保留原 `pid_type_def`，并新增 `pid_enhanced_t` 供拨轮双环使用） |
 | `components/support/fifo.*` | 字节 FIFO，裁判系统串口解包关键依赖 |
 | `components/support/CRC8_CRC16.*` | 协议 CRC 校验工具 |
 
@@ -181,4 +181,72 @@
     `dk = gamma * error * cos_theta`,
     `db = gamma * error`.
   - No change to FF composition clamp, PID parameters, telemetry outputs, or rate-limit safety net.
+
+## 2026-02-28 Supplement: Shoot Trigger Motor Optimization
+
+- `components/controller/pid.h` / `components/controller/pid.c`:
+  - Added `pid_enhanced_t` and APIs:
+    `PID_enhanced_init()` / `PID_enhanced_calc()` / `PID_enhanced_clear()`.
+  - Capability includes dead-zone, variable integral region, trapezoidal integral,
+    and incomplete-derivative filtering.
+- `application/shoot.h` / `application/shoot.c`:
+  - Replaced trigger single-loop PID field with:
+    `trigger_pos_pid` + `trigger_spd_pid`.
+  - Added continuous trigger encoder states:
+    `trigger_ecd_set` / `trigger_ecd_fdb`.
+  - Added local heat predictor states:
+    `local_heat` / `referee_heat` / `burst_mode`.
+  - Added `R`-key burst toggle and safe/burst heat gating.
+- `application/usb_task.c`:
+  - `USB_PID_TARGET_TRIGGER` online tuning target now maps to
+    `shoot_control.trigger_spd_pid`.
+
+## 2026-02-28 Supplement: VT03 UART Mode Switching
+
+- `application/uart_mode.h` (new):
+  - central compile-time switch `CURRENT_UART_MODE`;
+  - derived macros: `USART6_VT03/USART6_REFEREE/USART1_VT03/USART1_WIFI/VT03_ENABLE`;
+  - compile-time guard for competition mode vs WiFi telemetry conflict.
+- `application/vt03_link.c/h` (new):
+  - VT03 frame state machine and CRC16 check;
+  - decodes VT03 payload into shared `rc_ctrl` and refreshes `detect_hook(VT03_TOE)`.
+- `application/referee_usart_task.c`:
+  - `USART6_IRQHandler` split by mode (`VT03 RXNE` vs `referee DMA+IDLE`);
+  - `USART1_IRQHandler` split by mode (`VT03 RXNE` vs `WiFi ring buffer`);
+  - task init split by mode (`usart6_init(...)` vs `__HAL_UART_ENABLE_IT(UART_IT_RXNE)`).
+- `Src/usart.c`:
+  - `MX_USART1_UART_Init` and `MX_USART6_UART_Init` baudrate switched by UART mode macros.
+- `application/wifi_bridge.h`:
+  - `WIFI_BRIDGE_ENABLE` now depends on both `USART1_WIFI` and `TELEM_OUTPUT_MODE==TELEM_MODE_WIFI`.
+- `Src/main.c`:
+  - USER init adds `USART1_VT03` branch to enable RXNE IRQ and skip `usart1_tx_dma_init`.
+- `application/remote_control.c`:
+  - DBUS forwarding to USART1 is blocked when `USART1_VT03` is active.
+- `application/detect_task.h/c`:
+  - adds `VT03_TOE` and corresponding threshold row in `set_item`.
+
+## 2026-03-01 Supplement: Keyboard Action Module
+
+- `application/keyboard_action.h` / `application/keyboard_action.c` (new):
+  - centralized edge detection for keyboard bits (`rising/falling/held`);
+  - VT13 long/short press decode for `fn_1/fn_2/pause` with 300ms threshold;
+  - normalized command export via `get_keyboard_cmd()`,
+    plus state export `get_kb_chassis_mode()` / `get_kb_zero_force()`.
+- `application/gimbal_task.c`:
+  - module init/update hook integration in 1ms control loop.
+- `application/shoot.c`:
+  - consumes keyboard-action commands for shoot toggle, burst/high-frequency mode,
+    trigger reverse, VT03 trigger pulse, and fric speed adjust.
+  - `SHOOT_READY_BULLET` changed to static standby (removed automatic trigger-wheel pre-spin).
+  - fire edge can enter `SHOOT_BULLET` from both `SHOOT_READY` and `SHOOT_READY_BULLET`.
+  - keyboard-assist gate unified as `s1=MID` or (`VT03 online` and `s0!=DOWN`).
+- `application/chassis_behaviour.c`:
+  - consumes `get_kb_chassis_mode()` to override mode selection when `s0 != DOWN`.
+- `application/gimbal_behaviour.c`:
+  - consumes `get_kb_zero_force()` to force `GIMBAL_ZERO_FORCE`.
+- `application/vt03_link.c`:
+  - mode switch mapped to DBUS-compatible `rc.s[0]` values before upper modules consume it.
+- `application/usb_task.c`:
+  - keeps FireWater fixed-field frame length unchanged;
+  - extends `event_bits` with `bit8..20` for VT13 raw key states and `keyboard_cmd` pulse observability.
 

@@ -9,6 +9,7 @@
 - [02_ARCHITECTURE.md](02_ARCHITECTURE.md)：系统架构与关键数据流
 - [03_TASK_MAP.md](03_TASK_MAP.md)：任务映射（由代码自动初填）
 - [04_MODULE_MAP.md](04_MODULE_MAP.md)：模块地图（目录/关键文件）
+- [05_BOARD_PHYSICAL_MAP.md](05_BOARD_PHYSICAL_MAP.md)：C 板物理接口与外设连接手册（丝印对照、PWM/DBUS/UART 详情、裁判系统架构、VT03 接入分析）
 
 ## 模板与过程资产
 
@@ -58,6 +59,13 @@
 - [ai_sessions/2026-02-27_pitch_ff_adaptive_gamma.md](ai_sessions/2026-02-27_pitch_ff_adaptive_gamma.md)：Pitch 自适应前馈误差自适应GAMMA加速收敛
 - [ai_sessions/2026-02-27_usb_telem_mode_mutex_drop_split.md](ai_sessions/2026-02-27_usb_telem_mode_mutex_drop_split.md)：USB/WiFi/关闭 三模式互斥遥测 + drop_cnt 双通道独立计数
 - [ai_sessions/2026-02-27_usb_task_priority_below_normal_dbus_offline_fix.md](ai_sessions/2026-02-27_usb_task_priority_below_normal_dbus_offline_fix.md)：WiFi 遥测模式下降低 USBTask 优先级，修复 DBUS 误离线告警
+- [ai_sessions/2026-02-28_shoot_trigger_motor_optimization.md](ai_sessions/2026-02-28_shoot_trigger_motor_optimization.md)：拨轮双环 + 本地热量预测/爆发模式落地
+- [ai_sessions/2026-02-28_vt03_uart_mode_switching.md](ai_sessions/2026-02-28_vt03_uart_mode_switching.md)：VT03 图传链路接入 + UART 三模式编译期切换
+- [ai_sessions/2026-03-01_vt03_keyboard_action.md](ai_sessions/2026-03-01_vt03_keyboard_action.md)：VT03/VT13 键鼠动作集中管理（keyboard_action）与底盘/云台/发射联动
+- [ai_sessions/2026-03-02_shoot_single_fire_reverse_grid_fix.md](ai_sessions/2026-03-02_shoot_single_fire_reverse_grid_fix.md)：Shoot 单发修复 + fn_2 长按反转持续输出 + 拨轮 1/9 格数修正
+- [ai_sessions/2026-03-03_detect_trigger_motor_toe_temp_disable.md](ai_sessions/2026-03-03_detect_trigger_motor_toe_temp_disable.md)：临时禁用 TRIGGER_MOTOR 离线检测（电机拆卸维修期间）
+- [ai_sessions/2026-03-03_vt03_dbus_mouse_button_preserve.md](ai_sessions/2026-03-03_vt03_dbus_mouse_button_preserve.md)：VT03 保留 DBUS 鼠标左右键（仅 DBUS 离线时清零）
+- [ai_sessions/2026-03-04_gimbal_pitch_mouse_y_invert.md](ai_sessions/2026-03-04_gimbal_pitch_mouse_y_invert.md)：反转鼠标 Y 轴控制 pitch 方向（仅改两处符号）
 - [adr/ADR_TEMPLATE.md](adr/ADR_TEMPLATE.md)：架构决策记录模板
 
 ## 根目录兼容入口

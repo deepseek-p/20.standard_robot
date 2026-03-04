@@ -79,3 +79,31 @@
 - Unchanged scope:
   - DBUS offline timeout config is unchanged.
   - UART1 telemetry send API remains blocking.
+
+## 2026-02-28 Supplement: VT03 + UART Mode Switching
+
+- `REFEREE` task (`referee_usart_task`) now has compile-time split behavior:
+  - `USART6_REFEREE=1`: keep legacy referee DMA+IDLE receive and unpack flow.
+  - `USART6_REFEREE=0` (`USART6_VT03=1`): skip referee DMA init and use RXNE byte interrupt for VT03 parser.
+- `detect_task` adds a new device slot: `VT03_TOE` with offline/online thresholds for VT03 link monitoring.
+- `main.c` USER init adds `USART1_VT03` branch:
+  - VT03 mode: enable RXNE IRQ on USART1 and skip `usart1_tx_dma_init`.
+  - non-VT03 mode: keep original `usart1_tx_dma_init`.
+- `USART3_IRQHandler` (DBUS path) now suppresses `sbus_to_usart1` forwarding when `USART1_VT03=1`.
+
+## 2026-03-01 Supplement: Keyboard Action Integration
+
+- `gimbalTask`:
+  - added `keyboard_action_init()` after `shoot_init()`.
+  - added `keyboard_action_update()` at the beginning of each 1ms loop.
+  - offline motor-zero path changed to dual-source check: `DBUS && VT03` offline.
+  - `shoot_set_mode` now allows fire edge entry from `SHOOT_READY_BULLET`, reducing dependency on trigger key switch state.
+  - `shoot_control_loop` keeps `SHOOT_READY_BULLET` as static standby (no automatic trigger-wheel motion).
+- `ChassisTask`:
+  - startup wait condition changed to `DBUS && VT03` offline.
+  - runtime zero-current guard changed to `DBUS && VT03` offline.
+- `USBTask`:
+  - `event_bits` high bits (`bit8..bit20`) now expose VT13 raw key states and keyboard-action command pulses for mapping diagnostics.
+- Task scheduling unchanged:
+  - no task creation changes in `Src/freertos.c`;
+  - no priority, stack size, or period change.
