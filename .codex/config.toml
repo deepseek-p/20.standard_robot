@@ -1,0 +1,6 @@
+﻿
+
+[mcp_servers."STM32遥测调参"]
+command = "D:/python/python.exe"
+args = ["D:/tools/stm32-telemetry-mcp/server.py"]
+
