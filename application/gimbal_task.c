@@ -40,6 +40,7 @@
 #include "gimbal_behaviour.h"
 #include "INS_task.h"
 #include "pid.h"
+#include "keyboard_action.h"
 
 extern void shoot_init(void);
 extern int16_t shoot_control_loop(void);
@@ -406,6 +407,8 @@ void gimbal_task(void const *pvParameters)
     //shoot init
     //射击初始化
     shoot_init();
+    //keyboard action init
+    keyboard_action_init();
     //wait for all motor online
     //判断电机是否都上线
     while (toe_is_error(YAW_GIMBAL_MOTOR_TOE) || toe_is_error(PITCH_GIMBAL_MOTOR_TOE))
@@ -419,6 +422,7 @@ void gimbal_task(void const *pvParameters)
         int16_t fric1_current = 0;
         int16_t fric2_current = 0;
 
+        keyboard_action_update();
         gimbal_set_mode(&gimbal_control);                    //设置云台控制模式
         gimbal_mode_change_control_transit(&gimbal_control); //控制模式切换 控制数据过渡
         gimbal_feedback_update(&gimbal_control);             //云台数据反馈
@@ -438,7 +442,11 @@ void gimbal_task(void const *pvParameters)
         pitch_can_set_current = gimbal_control.gimbal_pitch_motor.given_current;
 #endif
 
-        if (toe_is_error(DBUS_TOE) || toe_is_error(YAW_GIMBAL_MOTOR_TOE) || toe_is_error(PITCH_GIMBAL_MOTOR_TOE) || toe_is_error(TRIGGER_MOTOR_TOE))
+        if ((toe_is_error(DBUS_TOE)
+#if VT03_ENABLE
+             && toe_is_error(VT03_TOE)
+#endif
+            ) || toe_is_error(YAW_GIMBAL_MOTOR_TOE) || toe_is_error(PITCH_GIMBAL_MOTOR_TOE) || toe_is_error(TRIGGER_MOTOR_TOE))
         {
             CAN_cmd_gimbal(0, 0, 0, 0);
             CAN_cmd_fric(0, 0);

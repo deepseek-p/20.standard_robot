@@ -3,9 +3,14 @@
 
 #include "struct_typedef.h"
 #include "usb_task.h"
+#include "uart_mode.h"
 
 #ifndef WIFI_BRIDGE_ENABLE
-#define WIFI_BRIDGE_ENABLE  (TELEM_OUTPUT_MODE == TELEM_MODE_WIFI)
+#if USART1_WIFI && (TELEM_OUTPUT_MODE == TELEM_MODE_WIFI)
+#define WIFI_BRIDGE_ENABLE  1
+#else
+#define WIFI_BRIDGE_ENABLE  0
+#endif
 #endif
 
 #if WIFI_BRIDGE_ENABLE

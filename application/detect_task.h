@@ -77,6 +77,7 @@ enum errorList
     REFEREE_TOE,
     RM_IMU_TOE,
     OLED_TOE,
+    VT03_TOE,              // VT03 ?????????
     ERROR_LIST_LENGHT,
 };
 

@@ -1,11 +1,11 @@
 /**
   ****************************(C) COPYRIGHT 2019 DJI****************************
   * @file       shoot.c/h
-  * @brief      Éä»÷¹¦ÄÜ.
+  * @brief      ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿?
   * @note
   * @history
   *  Version    Date            Author          Modification
-  *  V1.0.0     Dec-26-2018     RM              1. Íê³É
+  *  V1.0.0     Dec-26-2018     RM              1. ï¿½ï¿½ï¿?
   *
   @verbatim
   ==============================================================================
@@ -16,6 +16,10 @@
   */
 
 #include "shoot.h"
+#include "keyboard_action.h"
+#if VT03_ENABLE
+#include "vt03_link.h"
+#endif
 #include "main.h"
 
 #include "cmsis_os.h"
@@ -30,58 +34,58 @@
 #include "detect_task.h"
 #include "pid.h"
 
-#define shoot_laser_on()    laser_on()      //¼¤¹â¿ªÆôºê¶¨Òå
-#define shoot_laser_off()   laser_off()     //¼¤¹â¹Ø±Õºê¶¨Òå
-//Î¢¶¯¿ª¹ØIO
+#define shoot_laser_on()    laser_on()      //ï¿½ï¿½ï¿½â¿ªï¿½ï¿½ï¿½ê¶¨ï¿½ï¿½
+#define shoot_laser_off()   laser_off()     //ï¿½ï¿½ï¿½ï¿½Ø±Õºê¶¨ï¿½ï¿?
+//Î¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½IO
 #define BUTTEN_TRIG_PIN HAL_GPIO_ReadPin(BUTTON_TRIG_GPIO_Port, BUTTON_TRIG_Pin)
 
 /**
-  * @brief          Éä»÷×´Ì¬»úÉèÖÃ£¬Ò£¿ØÆ÷ÉÏ²¦Ò»´Î¿ªÆô£¬ÔÙÉÏ²¦¹Ø±Õ£¬ÏÂ²¦1´Î·¢Éä1¿Å£¬Ò»Ö±´¦ÔÚÏÂ£¬Ôò³ÖÐø·¢Éä£¬ÓÃÓÚ3min×¼±¸Ê±¼äÇåÀí×Óµ¯
+  * @brief          ï¿½ï¿½ï¿½×´Ì¬ï¿½ï¿½ï¿½ï¿½ï¿½Ã£ï¿½Ò£ï¿½ï¿½ï¿½ï¿½ï¿½Ï²ï¿½Ò»ï¿½Î¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï²ï¿½ï¿½Ø±Õ£ï¿½ï¿½Â²ï¿?ï¿½Î·ï¿½ï¿½ï¿½1ï¿½Å£ï¿½Ò»Ö±ï¿½ï¿½ï¿½ï¿½ï¿½Â£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ä£¬ï¿½ï¿½ï¿½ï¿?min×¼ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Óµï¿½
   * @param[in]      void
   * @retval         void
   */
 static void shoot_set_mode(void);
 /**
-  * @brief          Éä»÷Êý¾Ý¸üÐÂ
+  * @brief          ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ý¸ï¿½ï¿½ï¿?
   * @param[in]      void
   * @retval         void
   */
 static void shoot_feedback_update(void);
 
 /**
-  * @brief          ¶Â×ªµ¹×ª´¦Àí
+  * @brief          ï¿½ï¿½×ªï¿½ï¿½×ªï¿½ï¿½ï¿½ï¿½
   * @param[in]      void
   * @retval         void
   */
 static void trigger_motor_turn_back(void);
 
 /**
-  * @brief          Éä»÷¿ØÖÆ£¬¿ØÖÆ²¦µ¯µç»ú½Ç¶È£¬Íê³ÉÒ»´Î·¢Éä
+  * @brief          ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æ£ï¿½ï¿½ï¿½ï¿½Æ²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç¶È£ï¿½ï¿½ï¿½ï¿½Ò»ï¿½Î·ï¿½ï¿½ï¿?
   * @param[in]      void
   * @retval         void
   */
 static void shoot_bullet_control(void);
 
-shoot_control_t shoot_control;          //Éä»÷Êý¾Ý
+shoot_control_t shoot_control;          //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿?
 
 /**
-  * @brief          Éä»÷³õÊ¼»¯£¬³õÊ¼»¯PID£¬Ò£¿ØÆ÷Ö¸Õë£¬µç»úÖ¸Õë
+  * @brief          ï¿½ï¿½ï¿½ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¼ï¿½ï¿½PIDï¿½ï¿½Ò£ï¿½ï¿½ï¿½ï¿½Ö¸ï¿½ë£¬ï¿½ï¿½ï¿½Ö¸ï¿½ï¿?
   * @param[in]      void
-  * @retval         ·µ»Ø¿Õ
+  * @retval         ï¿½ï¿½ï¿½Ø¿ï¿½
   */
 void shoot_init(void)
 {
     static const fp32 fric_speed_pid[3] = {FRIC_SPEED_PID_KP, FRIC_SPEED_PID_KI, FRIC_SPEED_PID_KD};
 
     shoot_control.shoot_mode = SHOOT_STOP;
-    //Ò£¿ØÆ÷Ö¸Õë
+    //Ò£ï¿½ï¿½ï¿½ï¿½Ö¸ï¿½ï¿½
     shoot_control.shoot_rc = get_remote_control_point();
-    //µç»úÖ¸Õë
+    //ï¿½ï¿½ï¿½Ö¸ï¿½ï¿?
     shoot_control.shoot_motor_measure = get_trigger_motor_measure_point();
     shoot_control.fric1_motor_measure = get_fric1_motor_measure_point();
     shoot_control.fric2_motor_measure = get_fric2_motor_measure_point();
 
-    //³õÊ¼»¯PID
+    //ï¿½ï¿½Ê¼ï¿½ï¿½PID
     PID_enhanced_init(&shoot_control.trigger_pos_pid,
                       TRIGGER_POS_KP,
                       TRIGGER_POS_KI,
@@ -124,6 +128,7 @@ void shoot_init(void)
 
     shoot_control.block_time = 0;
     shoot_control.reverse_time = 0;
+    shoot_control.reverse_count = 0;
 
     shoot_control.fric_speed_set = 0.0f;
     shoot_control.fric_speed_base = FRIC_SPEED_LOW;
@@ -143,17 +148,17 @@ void shoot_init(void)
 }
 
 /**
-  * @brief          Éä»÷Ñ­»·
+  * @brief          ï¿½ï¿½ï¿½Ñ­ï¿½ï¿?
   * @param[in]      void
-  * @retval         ·µ»Øcan¿ØÖÆÖµ
+  * @retval         ï¿½ï¿½ï¿½ï¿½canï¿½ï¿½ï¿½ï¿½Öµ
   */
 int16_t shoot_control_loop(void)
 {
     uint16_t referee_heat_now;
 
-    shoot_feedback_update(); //¸üÐÂÊý¾Ý
+    shoot_feedback_update(); //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
-    // ±¾µØÈÈÁ¿Ô¤²âÃ¿ÖÜÆÚÀäÈ´£¨1ms£©
+    // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô¤ï¿½ï¿½Ã¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È´ï¿½ï¿½1msï¿½ï¿½
     if (shoot_control.local_heat > 0.0f)
     {
         shoot_control.local_heat -= HEAT_COOL_RATE / 1000.0f;
@@ -163,7 +168,7 @@ int16_t shoot_control_loop(void)
         }
     }
 
-    // ²ÃÅÐÏµÍ³ÈÈÁ¿Í¬²½ÓÃÓÚÐ£×¼Ô¤²âÖµ
+    // ï¿½ï¿½ï¿½ï¿½ÏµÍ³ï¿½ï¿½ï¿½ï¿½Í¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð£×¼Ô¤ï¿½ï¿½Öµ
     get_shoot_heat0_limit_and_heat0(&shoot_control.heat_limit, &referee_heat_now);
     if (referee_heat_now != shoot_control.referee_heat)
     {
@@ -171,37 +176,33 @@ int16_t shoot_control_loop(void)
         shoot_control.local_heat = (fp32)referee_heat_now;
     }
 
-    shoot_set_mode();        //ÉèÖÃ×´Ì¬»ú
+    shoot_set_mode();        //ï¿½ï¿½ï¿½ï¿½×´Ì¬ï¿½ï¿½
 
     if (shoot_control.shoot_mode == SHOOT_STOP)
     {
-        //ÉèÖÃ²¦µ¯ÂÖµÄËÙ¶È
         shoot_control.speed_set = 0.0f;
+        shoot_control.fric_speed_base = FRIC_SPEED_LOW;
+        shoot_control.high_freq_flag = 0;
+        shoot_control.burst_mode = 0;
+        shoot_control.trigger_ecd_set = shoot_control.trigger_ecd_fdb;
     }
     else if (shoot_control.shoot_mode == SHOOT_READY_FRIC)
     {
-        //ÉèÖÃ²¦µ¯ÂÖµÄËÙ¶È
+        //ï¿½ï¿½ï¿½Ã²ï¿½ï¿½ï¿½ï¿½Öµï¿½ï¿½Ù¶ï¿½
         shoot_control.speed_set = 0.0f;
+        shoot_control.trigger_ecd_set = shoot_control.trigger_ecd_fdb;
     }
     else if (shoot_control.shoot_mode == SHOOT_READY_BULLET)
     {
-        if (shoot_control.key == SWITCH_TRIGGER_OFF)
-        {
-            //ÉèÖÃ²¦µ¯ÂÖµÄ²¦¶¯ËÙ¶È,²¢¿ªÆô¶Â×ª·´×ª´¦Àí
-            shoot_control.trigger_speed_set = READY_TRIGGER_SPEED;
-            shoot_control.speed_set = shoot_control.trigger_speed_set;
-            trigger_motor_turn_back();
-        }
-        else
-        {
-            shoot_control.trigger_speed_set = 0.0f;
-            shoot_control.speed_set = 0.0f;
-        }
-        shoot_control.trigger_ecd_set = shoot_control.trigger_ecd_fdb;
+        //READY_BULLET: soft position hold (HUST style), ecd_set not tracked.
+        shoot_control.trigger_pos_pid.max_out = TRIGGER_POS_MAX_OUT_HOLD;
+        shoot_control.speed_set = PID_enhanced_calc(&shoot_control.trigger_pos_pid,
+                                                     shoot_control.trigger_ecd_fdb,
+                                                     shoot_control.trigger_ecd_set);
     }
     else if (shoot_control.shoot_mode == SHOOT_READY)
     {
-        //ÉèÖÃ²¦µ¯ÂÖµÄËÙ¶È
+        //ï¿½ï¿½ï¿½Ã²ï¿½ï¿½ï¿½ï¿½Öµï¿½ï¿½Ù¶ï¿½
         shoot_control.speed_set = 0.0f;
         shoot_control.trigger_ecd_set = shoot_control.trigger_ecd_fdb;
     }
@@ -211,7 +212,7 @@ int16_t shoot_control_loop(void)
     }
     else if (shoot_control.shoot_mode == SHOOT_CONTINUE_BULLET)
     {
-        //ÉèÖÃ²¦µ¯ÂÖµÄ²¦¶¯ËÙ¶È,²¢¿ªÆô¶Â×ª·´×ª´¦Àí
+        //ï¿½ï¿½ï¿½Ã²ï¿½ï¿½ï¿½ï¿½ÖµÄ²ï¿½ï¿½ï¿½ï¿½Ù¶ï¿½,ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×ªï¿½ï¿½×ªï¿½ï¿½ï¿½ï¿½
         if (shoot_control.high_freq_flag)
         {
             shoot_control.trigger_speed_set = CONTINUE_TRIGGER_SPEED * 1.5f;
@@ -233,18 +234,16 @@ int16_t shoot_control_loop(void)
     }
     else if (shoot_control.shoot_mode == SHOOT_DONE)
     {
-        shoot_control.speed_set = 0.0f;
-        shoot_control.trigger_ecd_set = shoot_control.trigger_ecd_fdb;
+        //DONE: soft position PID hold (same as READY_BULLET).
+        shoot_control.trigger_pos_pid.max_out = TRIGGER_POS_MAX_OUT_HOLD;
+        shoot_control.speed_set = PID_enhanced_calc(&shoot_control.trigger_pos_pid,
+                                                     shoot_control.trigger_ecd_fdb,
+                                                     shoot_control.trigger_ecd_set);
     }
 
     if (shoot_control.shoot_mode != SHOOT_CONTINUE_BULLET)
     {
         shoot_control.trigger_ecd_last_fire = shoot_control.trigger_ecd_fdb;
-    }
-
-    if ((shoot_control.shoot_mode != SHOOT_STOP) && (shoot_control.shoot_rc->key.v & SHOOT_REVERSE_KEYBOARD))
-    {
-        shoot_control.speed_set = -REVERSE_SPEED_LIMIT;
     }
 
     if (shoot_control.shoot_mode == SHOOT_STOP)
@@ -254,12 +253,25 @@ int16_t shoot_control_loop(void)
     }
     else
     {
-        shoot_laser_on(); //¼¤¹â¿ªÆô
-        //¼ÆËã²¦µ¯ÂÖµç»úËÙ¶È»·PID
+        shoot_laser_on();
         shoot_control.given_current = (int16_t)PID_enhanced_calc(&shoot_control.trigger_spd_pid, shoot_control.speed, shoot_control.speed_set);
-        if (shoot_control.shoot_mode < SHOOT_READY_BULLET)
+        if (shoot_control.shoot_mode <= SHOOT_READY_FRIC)
         {
             shoot_control.given_current = 0;
+        }
+    }
+
+    /* åè½¬è¦†ç›–ï¼šæ”¾åœ¨é›¶ç”µæµé—¨æŽ§ä¹‹åŽï¼Œreverse æ—¶é‡ï¿?PID è¦†ç›– given_current */
+    if (shoot_control.shoot_mode != SHOOT_STOP)
+    {
+        const keyboard_cmd_t *kb_cmd_reverse;
+        kb_cmd_reverse = get_keyboard_cmd();
+        if ((shoot_control.shoot_rc->key.v & SHOOT_REVERSE_KEYBOARD) || kb_cmd_reverse->reverse_trigger)
+        {
+            shoot_control.speed_set = -REVERSE_SPEED_LIMIT;
+            shoot_control.given_current = (int16_t)PID_enhanced_calc(&shoot_control.trigger_spd_pid,
+                                                                       shoot_control.speed,
+                                                                       shoot_control.speed_set);
         }
     }
 
@@ -272,7 +284,7 @@ int16_t shoot_control_loop(void)
         shoot_control.fric_speed_set = shoot_control.fric_speed_base;
     }
 
-    // Ä¦²ÁÂÖ1Õý×ª£¬Ä¦²ÁÂÖ2·´×ª
+    // Ä¦ï¿½ï¿½ï¿½ï¿½1ï¿½ï¿½×ªï¿½ï¿½Ä¦ï¿½ï¿½ï¿½ï¿½2ï¿½ï¿½×ª
     PID_calc(&shoot_control.fric1_pid,
              (fp32)shoot_control.fric1_motor_measure->speed_rpm,
              shoot_control.fric_speed_set);
@@ -286,7 +298,7 @@ int16_t shoot_control_loop(void)
 }
 
 /**
-  * @brief          Éä»÷×´Ì¬»úÉèÖÃ£¬Ò£¿ØÆ÷ÉÏ²¦Ò»´Î¿ªÆô£¬ÔÙÉÏ²¦¹Ø±Õ£¬ÏÂ²¦1´Î·¢Éä1¿Å£¬Ò»Ö±´¦ÔÚÏÂ£¬Ôò³ÖÐø·¢Éä£¬ÓÃÓÚ3min×¼±¸Ê±¼äÇåÀí×Óµ¯
+  * @brief          ï¿½ï¿½ï¿½×´Ì¬ï¿½ï¿½ï¿½ï¿½ï¿½Ã£ï¿½Ò£ï¿½ï¿½ï¿½ï¿½ï¿½Ï²ï¿½Ò»ï¿½Î¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï²ï¿½ï¿½Ø±Õ£ï¿½ï¿½Â²ï¿?ï¿½Î·ï¿½ï¿½ï¿½1ï¿½Å£ï¿½Ò»Ö±ï¿½ï¿½ï¿½ï¿½ï¿½Â£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ä£¬ï¿½ï¿½ï¿½ï¿?min×¼ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Óµï¿½
   * @param[in]      void
   * @retval         void
   */
@@ -297,8 +309,26 @@ static void shoot_set_mode(void)
     bool_t key_c;
     bool_t key_f;
     bool_t key_r;
+    bool_t fire_cmd_edge;
+    bool_t vt03_shoot_enable;
+    bool_t shoot_aux_enable;
+    const keyboard_cmd_t *kb_cmd;
 
-    //ÉÏ²¦ÅÐ¶Ï£¬ Ò»´Î¿ªÆô£¬ÔÙ´Î¹Ø±Õ
+    kb_cmd = get_keyboard_cmd();
+    fire_cmd_edge = 0;
+    vt03_shoot_enable = 0;
+#if VT03_ENABLE
+    if (!toe_is_error(VT03_TOE) && !switch_is_down(shoot_control.shoot_rc->rc.s[0]))
+    {
+        vt03_shoot_enable = 1;
+    }
+#endif
+    shoot_aux_enable = (bool_t)(switch_is_mid(shoot_control.shoot_rc->rc.s[SHOOT_RC_MODE_CHANNEL]) || vt03_shoot_enable);
+    fire_cmd_edge = (bool_t)(((switch_is_down(shoot_control.shoot_rc->rc.s[SHOOT_RC_MODE_CHANNEL]) && !switch_is_down(last_s)) ||
+                              (shoot_control.press_l && (shoot_control.last_press_l == 0)) ||
+                              (shoot_control.press_r && (shoot_control.last_press_r == 0))));
+
+    /* ---- DBUS Â·ï¿½ï¿½: s[1] ï¿½Ï²ï¿½ toggleï¿½ï¿½VT03 ï¿½ï¿½ s[1]=DOWNï¿½ï¿½ï¿½Ë¶Î²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ---- */
     if ((switch_is_up(shoot_control.shoot_rc->rc.s[SHOOT_RC_MODE_CHANNEL]) && !switch_is_up(last_s) && shoot_control.shoot_mode == SHOOT_STOP))
     {
         shoot_control.shoot_mode = SHOOT_READY_FRIC;
@@ -308,36 +338,53 @@ static void shoot_set_mode(void)
         shoot_control.shoot_mode = SHOOT_STOP;
     }
 
+    /* ---- Q ï¿½ï¿½ / fn_1 ï¿½Ì°ï¿½: ï¿½ï¿½ï¿½ï¿½ÏµÍ³ toggleï¿½ï¿½Í¨ï¿½ï¿½ keyboard_cmdï¿½ï¿½ ---- */
+    if (kb_cmd->shoot_toggle && shoot_aux_enable)
+    {
+        if (shoot_control.shoot_mode == SHOOT_STOP)
+        {
+            shoot_control.shoot_mode = SHOOT_READY_FRIC;
+        }
+        else
+        {
+            shoot_control.shoot_mode = SHOOT_STOP;
+        }
+    }
+
     key_q = (shoot_control.shoot_rc->key.v & SHOOT_TOGGLE_KEYBOARD) ? 1 : 0;
     key_c = (shoot_control.shoot_rc->key.v & SHOOT_HIGH_FREQ_KEYBOARD) ? 1 : 0;
     key_f = (shoot_control.shoot_rc->key.v & SHOOT_FRIC_DEC_KEYBOARD) ? 1 : 0;
     key_r = (shoot_control.shoot_rc->key.v & SHOOT_BURST_KEYBOARD) ? 1 : 0;
 
-    if (key_r && !shoot_control.last_key_r)
+    if (shoot_aux_enable && ((key_r && !shoot_control.last_key_r) || kb_cmd->burst_toggle))
     {
         shoot_control.burst_mode = !shoot_control.burst_mode;
     }
 
-    if (switch_is_mid(shoot_control.shoot_rc->rc.s[SHOOT_RC_MODE_CHANNEL]))
+    if (shoot_aux_enable)
     {
-        if (key_q && !shoot_control.last_key_q)
-        {
-            if (shoot_control.shoot_mode == SHOOT_STOP)
-            {
-                shoot_control.shoot_mode = SHOOT_READY_FRIC;
-            }
-            else
-            {
-                shoot_control.shoot_mode = SHOOT_STOP;
-            }
-        }
-
-        if (key_c && !shoot_control.last_key_c)
+        if ((key_c && !shoot_control.last_key_c) || kb_cmd->high_freq_toggle)
         {
             shoot_control.high_freq_flag = !shoot_control.high_freq_flag;
         }
 
-        if (key_f && !shoot_control.last_key_f)
+        if (kb_cmd->fric_speed_adj == 1u)
+        {
+            shoot_control.fric_speed_base += FRIC_SPEED_ADJUST_STEP;
+        }
+        else if (kb_cmd->fric_speed_adj == 2u)
+        {
+            shoot_control.fric_speed_base -= FRIC_SPEED_ADJUST_STEP;
+        }
+        else if (kb_cmd->fric_speed_adj == 3u && shoot_control.shoot_mode != SHOOT_STOP)
+        {
+            shoot_control.fric_speed_base += FRIC_SPEED_ADJUST_STEP;
+        }
+        else if (kb_cmd->fric_speed_adj == 4u && shoot_control.shoot_mode != SHOOT_STOP)
+        {
+            shoot_control.fric_speed_base -= FRIC_SPEED_ADJUST_STEP;
+        }
+        else if (key_f && !shoot_control.last_key_f)
         {
             if (shoot_control.shoot_rc->key.v & SHOOT_FRIC_INC_KEYBOARD)
             {
@@ -347,6 +394,16 @@ static void shoot_set_mode(void)
             {
                 shoot_control.fric_speed_base -= FRIC_SPEED_ADJUST_STEP;
             }
+        }
+
+        /* Ó²ï¿½Þ·ï¿½ï¿½ï¿½fric_speed_base ï¿½ï¿½ï¿½Ã³ï¿½ï¿½ï¿½ï¿½ï¿½È«ï¿½ï¿½ï¿½ï¿½ */
+        if (shoot_control.fric_speed_base < FRIC_SPEED_LOW)
+        {
+            shoot_control.fric_speed_base = FRIC_SPEED_LOW;
+        }
+        else if (shoot_control.fric_speed_base > FRIC_SPEED_HIGH)
+        {
+            shoot_control.fric_speed_base = FRIC_SPEED_HIGH;
         }
     }
 
@@ -369,35 +426,25 @@ static void shoot_set_mode(void)
     {
         shoot_control.shoot_mode = SHOOT_READY_BULLET;
     }
-    else if (shoot_control.shoot_mode == SHOOT_READY)
+    else if ((shoot_control.shoot_mode == SHOOT_READY || shoot_control.shoot_mode == SHOOT_READY_BULLET) && fire_cmd_edge)
     {
-        //ÏÂ²¦Ò»´Î»òÕßÊó±ê°´ÏÂÒ»´Î£¬½øÈëÉä»÷×´Ì¬
-        if ((switch_is_down(shoot_control.shoot_rc->rc.s[SHOOT_RC_MODE_CHANNEL]) && !switch_is_down(last_s)) || (shoot_control.press_l && shoot_control.last_press_l == 0) || (shoot_control.press_r && shoot_control.last_press_r == 0))
-        {
-            shoot_control.shoot_mode = SHOOT_BULLET;
-        }
+        //Allow VT03 trigger/mouse fire command directly from READY_BULLET.
+        shoot_control.shoot_mode = SHOOT_BULLET;
     }
     else if (shoot_control.shoot_mode == SHOOT_DONE)
     {
-        if (shoot_control.key == SWITCH_TRIGGER_OFF)
-        {
-            shoot_control.key_time++;
-            if (shoot_control.key_time > SHOOT_DONE_KEY_OFF_TIME)
-            {
-                shoot_control.key_time = 0;
-                shoot_control.shoot_mode = SHOOT_READY_BULLET;
-            }
-        }
-        else
+        shoot_control.key_time++;
+        if ((shoot_control.key_time > SHOOT_DONE_KEY_OFF_TIME && fabs(shoot_control.speed) < 0.3f)
+            || shoot_control.key_time > 500)
         {
             shoot_control.key_time = 0;
-            shoot_control.shoot_mode = SHOOT_BULLET;
+            shoot_control.shoot_mode = SHOOT_READY_BULLET;
         }
     }
 
     if (shoot_control.shoot_mode > SHOOT_READY_FRIC)
     {
-        //Êó±ê³¤°´Ò»Ö±½øÈëÉä»÷×´Ì¬ ±£³ÖÁ¬·¢
+        //ï¿½ï¿½ï¿½ï¿½Ò»Ö±ï¿½ï¿½×¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬ ï¿½ï¿½ï¿½Çµï¿½ï¿½ï¿½
         if ((shoot_control.press_l_time == MOUSE_LONG_PRESS_TIME) || (shoot_control.press_r_time == MOUSE_LONG_PRESS_TIME) || (shoot_control.rc_s_time == RC_S_LONG_TIME))
         {
             shoot_control.shoot_mode = SHOOT_CONTINUE_BULLET;
@@ -421,7 +468,7 @@ static void shoot_set_mode(void)
     }
 #endif
 
-    //Èç¹ûÔÆÌ¨×´Ì¬ÊÇ ÎÞÁ¦×´Ì¬£¬¾Í¹Ø±ÕÉä»÷
+    //ï¿½ï¿½ï¿½ï¿½ï¿½Ì¨×´Ì¬ï¿½ï¿½ï¿½Ô£ï¿?ï¿½ï¿½ï¿½×´Ì¬Ö±ï¿½Ó¹Ø±ï¿½×´ï¿½?
     if (gimbal_cmd_to_shoot_stop())
     {
         shoot_control.shoot_mode = SHOOT_STOP;
@@ -430,21 +477,24 @@ static void shoot_set_mode(void)
     last_s = shoot_control.shoot_rc->rc.s[SHOOT_RC_MODE_CHANNEL];
 }
 /**
-  * @brief          Éä»÷Êý¾Ý¸üÐÂ
+  * @brief          ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ý¸ï¿½ï¿½ï¿?
   * @param[in]      void
   * @retval         void
   */
 static void shoot_feedback_update(void)
 {
     int16_t ecd_delta;
+#if VT03_ENABLE
+    const keyboard_cmd_t *cmd;
+#endif
     static fp32 speed_fliter_1 = 0.0f;
     static fp32 speed_fliter_2 = 0.0f;
     static fp32 speed_fliter_3 = 0.0f;
 
-    //²¦µ¯ÂÖµç»úËÙ¶ÈÂË²¨Ò»ÏÂ
+    //ï¿½ï¿½ï¿½ï¿½ï¿½Öµï¿½ï¿½ï¿½Ù¶ï¿½ï¿½Ë²ï¿½Ò»ï¿½ï¿?
     static const fp32 fliter_num[3] = {1.725709860247969f, -0.75594777109163436f, 0.030237910843665373f};
 
-    //¶þ½×µÍÍ¨ÂË²¨
+    //ï¿½ï¿½ï¿½×µï¿½Í¨ï¿½Ë²ï¿½
     speed_fliter_1 = speed_fliter_2;
     speed_fliter_2 = speed_fliter_3;
     speed_fliter_3 = speed_fliter_2 * fliter_num[0] + speed_fliter_1 * fliter_num[1] + (shoot_control.shoot_motor_measure->speed_rpm * MOTOR_RPM_TO_SPEED) * fliter_num[2];
@@ -452,7 +502,7 @@ static void shoot_feedback_update(void)
 
     ecd_delta = shoot_control.shoot_motor_measure->ecd - shoot_control.shoot_motor_measure->last_ecd;
 
-    //µç»úÈ¦ÊýÖØÖÃ£¬ ÒòÎªÊä³öÖáÐý×ªÒ»È¦£¬ µç»úÖáÐý×ª 36È¦£¬½«µç»úÖáÊý¾Ý´¦Àí³ÉÊä³öÖáÊý¾Ý£¬ÓÃÓÚ¿ØÖÆÊä³öÖá½Ç¶È
+    //ï¿½ï¿½ï¿½È¦ï¿½ï¿½ï¿½ï¿½ï¿½Ã£ï¿?ï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×ªÒ»È¦ï¿½ï¿?ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½?36È¦ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ý´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ý£ï¿½ï¿½ï¿½ï¿½Ú¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç¶ï¿½
     if (ecd_delta > HALF_ECD_RANGE)
     {
         shoot_control.ecd_count--;
@@ -473,19 +523,31 @@ static void shoot_feedback_update(void)
         shoot_control.ecd_count = FULL_COUNT - 1;
     }
 
-    //¼ÆËãÊä³öÖá½Ç¶È
+    //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç¶ï¿½
     shoot_control.angle = (shoot_control.ecd_count * ECD_RANGE + shoot_control.shoot_motor_measure->ecd) * MOTOR_ECD_TO_ANGLE;
     shoot_control.trigger_ecd_fdb = (fp32)(shoot_control.trigger_ecd_total_count * ECD_RANGE + shoot_control.shoot_motor_measure->ecd);
 
-    //Î¢¶¯¿ª¹Ø
+    //Î¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     shoot_control.key = BUTTEN_TRIG_PIN;
-    //Êó±ê°´¼ü
+    //ï¿½ï¿½ê°´ï¿½ï¿?
     shoot_control.last_press_l = shoot_control.press_l;
     shoot_control.last_press_r = shoot_control.press_r;
     shoot_control.press_l = shoot_control.shoot_rc->mouse.press_l;
     shoot_control.press_r = shoot_control.shoot_rc->mouse.press_r;
 
-    //³¤°´¼ÆÊ±
+    /* VT03 trigger ï¿½ï¿½Í¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
+#if VT03_ENABLE
+    cmd = get_keyboard_cmd();
+    if (!toe_is_error(VT03_TOE))
+    {
+        if (cmd->vt03_trigger)
+        {
+            shoot_control.press_l = 1;
+        }
+    }
+#endif
+
+    //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±
     if (shoot_control.press_l)
     {
         if (shoot_control.press_l_time < MOUSE_LONG_PRESS_TIME)
@@ -510,7 +572,7 @@ static void shoot_feedback_update(void)
         shoot_control.press_r_time = 0;
     }
 
-    //Éä»÷¿ª¹ØÏÂµµÊ±¼ä¼ÆÊ±
+    //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Âµï¿½Ê±ï¿½ï¿½ï¿½Ê±
     if (shoot_control.shoot_mode != SHOOT_STOP && switch_is_down(shoot_control.shoot_rc->rc.s[SHOOT_RC_MODE_CHANNEL]))
     {
         if (shoot_control.rc_s_time < RC_S_LONG_TIME)
@@ -536,11 +598,24 @@ static void trigger_motor_turn_back(void)
 
     if (shoot_control.block_time >= BLOCK_TIME)
     {
+        if (shoot_control.reverse_count >= MAX_REVERSE_COUNT)
+        {
+            // Too many reversals: give up this shot, return to READY_BULLET
+            shoot_control.speed_set = 0.0f;
+            shoot_control.move_flag = 0;
+            shoot_control.reverse_flag = 0;
+            shoot_control.block_time = 0;
+            shoot_control.reverse_time = 0;
+            shoot_control.shoot_mode = SHOOT_READY_BULLET;
+            return;
+        }
+
         shoot_control.speed_set = -fallback_speed;
 
         if (!shoot_control.reverse_flag)
         {
             shoot_control.reverse_flag = 1;
+            shoot_control.reverse_count++;
             if (shoot_control.move_flag)
             {
                 shoot_control.trigger_ecd_set -= TRIGGER_ONEGRID;
@@ -565,7 +640,7 @@ static void trigger_motor_turn_back(void)
 }
 
 /**
-  * @brief          Éä»÷¿ØÖÆ£¬¿ØÖÆ²¦µ¯µç»ú½Ç¶È£¬Íê³ÉÒ»´Î·¢Éä
+  * @brief          ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æ£ï¿½ï¿½ï¿½ï¿½Æ²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç¶È£ï¿½ï¿½ï¿½ï¿½Ò»ï¿½Î·ï¿½ï¿½ï¿?
   * @param[in]      void
   * @retval         void
   */
@@ -573,15 +648,14 @@ static void shoot_bullet_control(void)
 {
     fp32 pos_err;
 
+    // Restore full torque for firing
+    shoot_control.trigger_pos_pid.max_out = TRIGGER_POS_MAX_OUT_FIRE;
+
     if (shoot_control.move_flag == 0)
     {
         shoot_control.trigger_ecd_set += TRIGGER_ONEGRID;
         shoot_control.move_flag = 1;
-    }
-
-    if (shoot_control.key == SWITCH_TRIGGER_OFF)
-    {
-        shoot_control.shoot_mode = SHOOT_DONE;
+        shoot_control.reverse_count = 0;
     }
 
     shoot_control.speed_set = PID_enhanced_calc(&shoot_control.trigger_pos_pid, shoot_control.trigger_ecd_fdb, shoot_control.trigger_ecd_set);
@@ -604,6 +678,7 @@ static void shoot_bullet_control(void)
         shoot_control.reverse_flag = 0;
         shoot_control.block_time = 0;
         shoot_control.reverse_time = 0;
+        shoot_control.shoot_mode = SHOOT_DONE;
     }
 }
 
@@ -619,3 +694,4 @@ void shoot_get_fric_current(int16_t *fric1, int16_t *fric2)
         *fric2 = shoot_control.fric2_given_current;
     }
 }
+

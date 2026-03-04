@@ -36,7 +36,11 @@
 #include "gimbal_task.h"
 #include "chassis_task.h"
 #include "shoot.h"
+#include "keyboard_action.h"
 #include "wifi_bridge.h"
+#if VT03_ENABLE
+#include "vt03_link.h"
+#endif
 
 extern shoot_control_t shoot_control;
 
@@ -99,7 +103,7 @@ extern shoot_control_t shoot_control;
  * 42:mouse_y       -> mouse y
  * 43:key_v         -> keyboard bitmask
  *
- * 44:event_bits    -> event bitmap
+ * 44:event_bits    -> event bitmap (bit0..7 legacy, bit8..20 VT03/keyboard-action debug)
  * 45:gimbal_ok     -> gimbal snapshot valid flag
  * 46:chassis_ok    -> chassis snapshot valid flag
  *
@@ -119,6 +123,7 @@ extern shoot_control_t shoot_control;
  * 60:trigger_ecd_set -> trigger continuous encoder setpoint (raw)
  * 61:local_heat    -> local shoot heat predictor (milli-scale)
  * 62:bullet_cnt    -> local bullet fired counter (raw)
+ * 63:vt03_toe      -> VT03 offline/error flag
  */
 
 static uint8_t usb_buf[USB_DEBUG_FRAME_MAX_LEN];
@@ -1120,12 +1125,17 @@ static bool_t usb_emit_firewater_frame(uint32_t now_ms)
     uint8_t gyro_error;
     uint8_t accel_error;
     uint8_t referee_error;
+    uint8_t vt03_error;
     uint8_t gimbal_ok;
     uint8_t chassis_ok;
+    uint8_t vt03_online;
+    int16_t vt03_dial_ch;
 
     gimbal_debug_snapshot_t gimbal_snapshot;
     chassis_debug_snapshot_t chassis_snapshot;
     const RC_ctrl_t *rc_ctrl;
+    const keyboard_cmd_t *kb_cmd;
+    const key_state_t *key_state;
 
     dbus_error = error_list_usb_local[DBUS_TOE].error_exist;
     yaw_error = error_list_usb_local[YAW_GIMBAL_MOTOR_TOE].error_exist;
@@ -1133,10 +1143,25 @@ static bool_t usb_emit_firewater_frame(uint32_t now_ms)
     gyro_error = error_list_usb_local[BOARD_GYRO_TOE].error_exist;
     accel_error = error_list_usb_local[BOARD_ACCEL_TOE].error_exist;
     referee_error = error_list_usb_local[REFEREE_TOE].error_exist;
+    vt03_error = error_list_usb_local[VT03_TOE].error_exist;
 
     gimbal_ok = get_gimbal_debug_snapshot(&gimbal_snapshot);
     chassis_ok = get_chassis_debug_snapshot(&chassis_snapshot);
     rc_ctrl = get_remote_control_point();
+    kb_cmd = get_keyboard_cmd();
+    key_state = get_key_state();
+    vt03_online = 0u;
+    vt03_dial_ch = 0;
+#if VT03_ENABLE
+    if (!vt03_error)
+    {
+        vt03_online = 1u;
+    }
+    if (rc_ctrl != NULL)
+    {
+        vt03_dial_ch = rc_ctrl->rc.ch[4];
+    }
+#endif
 
     if (dbus_error != usb_last_dbus_error)
     {
@@ -1179,6 +1204,60 @@ static bool_t usb_emit_firewater_frame(uint32_t now_ms)
         event_bits |= (1u << 7);
     }
 
+    /* event_bits[8..20]: VT03/keyboard-action observability for key-mapping debug */
+    if (vt03_online)
+    {
+        event_bits |= (1u << 8);
+    }
+    if (vt03_online && key_state->fn1_cur)
+    {
+        event_bits |= (1u << 9);
+    }
+    if (vt03_online && key_state->fn2_cur)
+    {
+        event_bits |= (1u << 10);
+    }
+    if (vt03_online && key_state->trigger_cur)
+    {
+        event_bits |= (1u << 11);
+    }
+    if (vt03_online && key_state->pause_cur)
+    {
+        event_bits |= (1u << 12);
+    }
+    if (kb_cmd->shoot_toggle)
+    {
+        event_bits |= (1u << 13);
+    }
+    if (kb_cmd->high_freq_toggle)
+    {
+        event_bits |= (1u << 14);
+    }
+    if (kb_cmd->burst_toggle)
+    {
+        event_bits |= (1u << 15);
+    }
+    if (kb_cmd->reverse_trigger)
+    {
+        event_bits |= (1u << 16);
+    }
+    if (kb_cmd->vt03_trigger)
+    {
+        event_bits |= (1u << 17);
+    }
+    if (vt03_dial_ch > 200)
+    {
+        event_bits |= (1u << 18);
+    }
+    else if (vt03_dial_ch < -200)
+    {
+        event_bits |= (1u << 19);
+    }
+    if (rc_ctrl != NULL && !switch_is_down(rc_ctrl->rc.s[0]))
+    {
+        event_bits |= (1u << 20);
+    }
+
     usb_last_dbus_error = dbus_error;
     usb_last_yaw_motor_error = yaw_error;
     usb_last_pitch_motor_error = pitch_error;
@@ -1195,7 +1274,7 @@ static bool_t usb_emit_firewater_frame(uint32_t now_ms)
     seq = usb_debug_next_seq();
 
     len = snprintf((char *)usb_buf, USB_DEBUG_FRAME_MAX_LEN,
-                   "%lu,%lu,%lu,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld\r\n",
+                   "%lu,%lu,%lu,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld\r\n",
                    now_ms,
                    seq,
 #if WIFI_BRIDGE_ENABLE
@@ -1262,7 +1341,8 @@ static bool_t usb_emit_firewater_frame(uint32_t now_ms)
                     usb_debug_masked_i32(USB_DBG_CH_SHOOT, (int32_t)shoot_control.trigger_ecd_fdb),
                     usb_debug_masked_i32(USB_DBG_CH_SHOOT, (int32_t)shoot_control.trigger_ecd_set),
                     usb_debug_masked_fp32_milli(USB_DBG_CH_SHOOT, shoot_control.local_heat),
-                    usb_debug_masked_i32(USB_DBG_CH_SHOOT, (int32_t)shoot_control.bullet_fired_count));
+                    usb_debug_masked_i32(USB_DBG_CH_SHOOT, (int32_t)shoot_control.bullet_fired_count),
+                    usb_debug_masked_u8(USB_DBG_CH_HEALTH, vt03_error));
 
     if (len <= 0)
     {

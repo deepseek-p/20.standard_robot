@@ -20,8 +20,14 @@
 #include "protocol.h"
 #include "referee.h"
 #include "wifi_bridge.h"
+#include "uart_mode.h"
+#if VT03_ENABLE
+#include "vt03_link.h"
+#endif
 
+#if USART6_REFEREE
 static void referee_unpack_fifo_data(void);
+#endif
 
 extern UART_HandleTypeDef huart6;
 
@@ -41,17 +47,26 @@ void referee_usart_task(void const *argument)
 {
     (void)argument;
 
+#if USART6_REFEREE
     init_referee_struct_data();
     fifo_s_init(&referee_fifo, referee_fifo_buf, REFEREE_FIFO_BUF_LENGTH);
     usart6_init(usart6_buf[0], usart6_buf[1], USART_RX_BUF_LENGHT);
+#else
+    // VT03 mode: use RXNE byte interrupt parser, no DMA double buffer setup.
+    __HAL_UART_CLEAR_OREFLAG(&huart6);
+    __HAL_UART_ENABLE_IT(&huart6, UART_IT_RXNE);
+#endif
 
     while (1)
     {
+#if USART6_REFEREE
         referee_unpack_fifo_data();
+#endif
         osDelay(10);
     }
 }
 
+#if USART6_REFEREE
 static void referee_unpack_fifo_data(void)
 {
     uint8_t byte = 0;
@@ -156,9 +171,24 @@ static void referee_unpack_fifo_data(void)
         }
     }
 }
+#endif
 
 void USART6_IRQHandler(void)
 {
+#if USART6_VT03
+    uint32_t sr = USART6->SR;
+
+    if ((sr & USART_SR_RXNE) != 0u)
+    {
+        uint8_t byte = (uint8_t)(USART6->DR & 0xFFu);
+        vt03_parse_byte(byte);
+    }
+    else if ((sr & USART_SR_ORE) != 0u)
+    {
+        volatile uint8_t dump = (uint8_t)(USART6->DR & 0xFFu);
+        (void)dump;
+    }
+#else
     if (USART6->SR & UART_FLAG_IDLE)
     {
         __HAL_UART_CLEAR_PEFLAG(&huart6);
@@ -186,9 +216,19 @@ void USART6_IRQHandler(void)
             detect_hook(REFEREE_TOE);
         }
     }
+#endif
 }
 
-#if WIFI_BRIDGE_ENABLE
+#if USART1_VT03
+void USART1_IRQHandler(void)
+{
+    if ((USART1->SR & USART_SR_RXNE) != 0u)
+    {
+        uint8_t byte = (uint8_t)(USART1->DR & 0xFFu);
+        vt03_parse_byte(byte);
+    }
+}
+#elif WIFI_BRIDGE_ENABLE
 void USART1_IRQHandler(void)
 {
     if ((USART1->SR & USART_SR_RXNE) != 0u)
