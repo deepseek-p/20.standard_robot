@@ -66,6 +66,11 @@
 - [ai_sessions/2026-03-03_detect_trigger_motor_toe_temp_disable.md](ai_sessions/2026-03-03_detect_trigger_motor_toe_temp_disable.md)：临时禁用 TRIGGER_MOTOR 离线检测（电机拆卸维修期间）
 - [ai_sessions/2026-03-03_vt03_dbus_mouse_button_preserve.md](ai_sessions/2026-03-03_vt03_dbus_mouse_button_preserve.md)：VT03 保留 DBUS 鼠标左右键（仅 DBUS 离线时清零）
 - [ai_sessions/2026-03-04_gimbal_pitch_mouse_y_invert.md](ai_sessions/2026-03-04_gimbal_pitch_mouse_y_invert.md)：反转鼠标 Y 轴控制 pitch 方向（仅改两处符号）
+- [ai_sessions/2026-03-06_shoot_state_machine_align_hust.md](ai_sessions/2026-03-06_shoot_state_machine_align_hust.md)：Shoot 状态机按 HUST 结构对齐（持续级联持仓 + DONE 兼容态）
+- [ai_sessions/2026-03-07_shoot_hust_core_replacement.md](ai_sessions/2026-03-07_shoot_hust_core_replacement.md)：Shoot 控制核心替换为 HUST_Infantry_2023 方案（rpm 级联 + 连发直驱 + 简化反转）
+- [plans/2026-03-06-shoot-hust-trigger-refactor-design.md](plans/2026-03-06-shoot-hust-trigger-refactor-design.md)：Shoot 发射控制按 HUST 风格重构的设计文档（上层命令生成 + 下层拨盘执行）
+- [plans/2026-03-06-shoot-hust-trigger-refactor-implementation.md](plans/2026-03-06-shoot-hust-trigger-refactor-implementation.md)：Shoot 发射控制按 HUST 风格重构的实施计划与板端验收步骤
+- [plans/2026-03-07-shoot-hust-core-replacement-impl.md](plans/2026-03-07-shoot-hust-core-replacement-impl.md)：Shoot HUST 控制核心替换实施计划（Codex 执行版）
 - [adr/ADR_TEMPLATE.md](adr/ADR_TEMPLATE.md)：架构决策记录模板
 
 ## 根目录兼容入口
@@ -74,4 +79,3 @@
 - [../AGENTS.md](../AGENTS.md)
 - [../git-guide.md](../git-guide.md)
 - [../README.md](../README.md)
-

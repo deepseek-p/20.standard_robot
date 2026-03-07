@@ -1,4 +1,4 @@
-﻿# 风险日志（模板）
+# 风险日志（模板）
 
 用途：记录跨会话持续存在的技术风险，避免“知道有问题但无人跟进”。
 
@@ -7,6 +7,9 @@
 | 日期 | 模块 | 风险描述 | 触发条件 | 影响范围 | 严重度（H/M/L） | 缓解措施 | 当前状态 | 验证计划 | 负责人 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | YYYY-MM-DD | 例如 `chassis_task` | 例如“功率限制阈值在低电压下可能误触发” | 例如“电池 < 22V 且持续急加速” | 例如“底盘动力突降” | H | 例如“增加滤波 + 分段阈值” | Open | 例如“长跑 15min + 上位机功率记录” | @name(对话名称为负责人名字) |
+| 2026-03-06 | `D:\tools\stm32-telemetry-mcp\frame_parser.py` | 主机侧 FireWater parser 落后于当前固件列定义：固件已输出 `67` 列，但 parser 仍按 `65` 列验帧，导致 `capture(COM22)` 返回 `0` 帧并把工具阻塞误判成板端无数据 | 固件增加 `trigger_sw/reverse_flag/referee_heat` 后，继续使用旧版 `stm32-telemetry-mcp` 采集 | 板端验收、问题定位和风险判断会被“假阻塞”污染 | M | 已将 parser 的 `TOTAL_COLUMNS` 从 `65` 补到 `67`，并新增 `trigger_sw/reverse_flag/referee_heat` 三列映射；修复后 `COM22` 试采 `2.5s` 已恢复 `123` 帧 | Mitigated | 1) 继续用 `stm32-telemetry-mcp` 跑空载 20 发；2) 核对新增三列的物理含义与状态变化是否和板端动作一致；3) 后续若再扩列，必须同步更新 parser | @Codex |
+| 2026-03-06 | `application/shoot.c/h` / `application/shoot_logic.c` | 发射状态机按 HUST 结构对齐后，曾在 `READY_BULLET` 持仓出现持续自激：旧固件单发后在固定 `trigger_ecd_set` 下 `trigger_cur` 长时间打满 `±10000`；新固件初次静态 READY 复验中，即使 `trigger_sw=0`、`reverse_flag=0` 且 `trigger_ecd_set=0` 固定，`trigger_cur` 仍全程饱和 `±8000`、`trigger_ecd_fdb` 在 `-90618 ~ 96767` 大幅往返。进一步定位显示 STOP 基线曾存在 stale setpoint；该问题修复后，STOP 基线与 READY 静态复验均已恢复 `fdb=set` 且 `trigger_cur=0`。但空载单发 `5` 发预验收中，`bullet_cnt` 虽每次只 `+1`，单发后恢复区间 `trigger_cur` 仍持续饱和 `±8000`，且 `peak|fdb-set|` 明显劣于基线。当前已继续按 HUST 语义将“`5000` 仅用于动作完成计数、`1000+松手` 才回贴当前位置”落地，待重新板端验证 | 空仓执行单发动作后回到 `READY_BULLET` 恢复阶段 | 拨弹电机温升、机构冲击、单发安全、后续实弹验收可信度 | H | 已定位并修复静态阶段 stale setpoint 根因，并已按 HUST 收尾语义修正单发完成条件；当前已排除“目标周期回写”“微动开关反复触发”“反转路径反复介入”三条支路 | In Progress | 1) 烧录本轮 HUST 收尾语义修复；2) 重新执行空载单发 `5` 发，核对 `bullet_cnt/+1`、`SHOOT_DONE`、overshoot 与恢复电流；3) 若仍失败，再继续检查机械方向与执行层极性；4) 空载未通过前禁止进入实弹 | @Codex |
+| 2026-03-07 | `application/shoot.c/h` / `MDK-ARM/standard_robot.uvprojx` | 已按计划替换为 HUST 控制核心（rpm 级联 + 连发直驱 + 一格反转）并移除 `shoot_logic`，但当前环境未完成 Keil 工程编译与上板复验；仍存在参数与机械方向不完全匹配导致动态恢复段电流/overshoot 异常的风险 | 刷入新固件后执行空载单发/连发验收（尤其 `BULLET -> READY_BULLET` 恢复段） | 发射安全、拨弹机构温升、实弹前门禁可信度 | H | 保留外部接口不变并限制改动面；先做工程级编译和空载 12 项验收，再决定是否进入实弹 | In Progress | 1) Keil Rebuild All=0 Error；2) 空载静态与单发/连发完整验收（含 `trigger_cur/speed/speed_set/ecd_set/fdb/bullet_cnt`）；3) 若恢复段仍异常，基于新语义再做参数细调 | @Codex |
 | 2026-02-28 | `application/shoot.c/h` / `components/controller/pid.*` | 拨轮改为位置+速度双环并引入本地热量预测后，若 `TRIGGER_ONEGRID`、位置阈值或内外环参数不匹配，可能出现少拨/过拨、堵转恢复慢或热量预测偏差，进而触发误门控或超热锁枪 | 比赛模式下连续单发/连发，尤其 R 键爆发模式切换与堵转反转工况 | 发射可靠性、热量安全边界、锁枪风险 | H | 保持原摩擦轮链路不变；新增双环但保留堵转反转止损；本地热量每周期冷却并用裁判热量校准；需实机标定 `TRIGGER_ONEGRID` 与双环参数 | In Progress | 1) Keil 编译；2) 单发 20 次统计到位误差与拨弹成功率；3) 连发+堵转混合测试对比 `local_heat` 与裁判热量差值；4) 安全/爆发两模式门控回归 | @Codex |
 | 2026-02-28 | `application/vt03_link.*` / `application/referee_usart_task.c` / `Src/usart.c` / `Src/main.c` / `application/wifi_bridge.h` / `application/remote_control.c` | UART 三模式切换和 VT03 接入后，若 `mode_sw` 映射、UART 角色配置或 ISR 路径不一致，可能导致遥控输入异常、链路冲突（VT03/WiFi/DBUS）或比赛模式下调参链路不可用 | 切换 `CURRENT_UART_MODE`，尤其 `UART_MODE_COMPETITION` 与 `TELEM_MODE_WIFI` 配置组合、VT03/ESP32 物理接线切换场景 | 遥控控制链路、裁判链路、调参链路可用性与稳定性 | H | 统一 `uart_mode.h` 编译期开关；在 competition + WiFi 配置上增加 `#error`；USART1/USART6 IRQ 与初始化均按模式分支；DBUS 到 USART1 转发在 VT03 模式下强制关闭 | In Progress | 1) 三模式全编译；2) VT03 收帧校验 `rc_ctrl` 字段；3) `toe_is_error(VT03_TOE)` 断链验证；4) competition 模式接线回归（USART1=VT03, USART6=referee） | @Codex |
 | 2026-03-01 | `application/keyboard_action.*` / `application/shoot.c` / `application/chassis_behaviour.c` / `application/gimbal_behaviour.c` | 新增键鼠集中动作层后，若长短按判定、VT13 物理键映射或 DBUS/VT03 双源容错条件不匹配，可能触发误动作（误开火、误切换模式、误进零力） | VT13 `fn_1/fn_2/pause` 高频操作、DBUS 与 VT03 源切换、链路短时抖动 | 发射安全、底盘模式稳定性、云台安全态切换 | H | 集中化边沿与长按逻辑（300ms），关键动作改为 rising/toggle 命令；离线判定统一为 `DBUS && VT03` 双离线触发；保留 DBUS 原路径 | In Progress | 1) Keil 编译；2) VT13 全键位短按/长按 20 次统计；3) 断开 DBUS 验证 VT03 可控；4) 断开 VT03 回归 DBUS；5) 记录误触发与触发延迟 | @Codex |
@@ -63,6 +66,8 @@
 | 2026-03-03 | `application/vt03_link.c` | VT03 帧解析若无条件将 `mouse.press_l/press_r` 清零，会覆盖 DBUS 在线输入，导致鼠标左键发射与右键瞄准失效 | DBUS 在线 + VT03 在线并行输入时 | 发射触发可靠性、瞄准控制可用性、多输入源合流一致性 | H | 在 `vt03_frame_decode()` 中改为“仅 DBUS 离线时清零鼠标键值”（`if (toe_is_error(DBUS_TOE))`） | In Progress | 1) DBUS+VT03 同时在线验证左右键功能；2) DBUS 离线验证 `press_l/press_r=0`；3) 采集 `shoot_mode/evt_trigger_cur` 复核输入到执行链路 | @Codex |
 | 2026-03-04 | `application/gimbal_behaviour.c` | 鼠标 Y 轴 pitch 方向若与操作预期不一致，会导致瞄准上/下动作反向，影响快速瞄准和联调效率 | 云台绝对角/相对角模式下使用鼠标 Y 输入调 pitch | 云台操控一致性、瞄准效率、联调可读性 | M | 仅在 `gimbal_absolute_angle_control` 与 `gimbal_relative_angle_control` 两处将 `mouse.y` 项从 `+` 改为 `-`，保持摇杆项与其他逻辑不变 | In Progress | 1) MID/UP 两挡分别验证鼠标上推下拉对应 pitch 方向；2) 记录 `pitch_*_set` 变化方向与用户预期一致；3) 回归摇杆 pitch 与鼠标 X/yaw 不受影响 | @Codex |
 
+| 2026-03-06 | `application/shoot.c` / `application/shoot.h` / `application/shoot_logic.*` / `application/usb_task.c` / `MDK-ARM/standard_robot.uvprojx` | 已按 HUST 思路落地 command layer + trigger executor、stale setpoint 修复、HUST 收尾语义对齐和 `±8000` 末端限流；STOP 基线与 READY 静态均已恢复，但烧录后空载单发 `5` 发复验仍失败：`bullet_cnt` 虽每次只 `+1`，恢复区间 `trigger_cur` 仍几乎全程饱和 `±8000`，`peak|fdb-set|` 最大值 `83377` 仍显著劣于基线 `53924`，且 `DONE` 未稳定显式出现。本轮又已补上 6 项集成层修复：持仓入口双 PID 清零、jam request flag 化、连发计弹回收至 executor、trigger ecd 字段改为 `int32_t`、删除 `SHOOT_READY` 死代码、`single_fire_req` 消费后清零，但尚未重新上板验证 | 空载单发后从 `SHOOT_BULLET` 返回 `READY_BULLET` 的动态恢复阶段 | 发射安全、反转语义、板端验收可信度 | H | 已新增 `shoot_logic.c/h`，删除手动反转旧速度旁路，补充 `trigger_sw/reverse_flag/referee_heat` 遥测；主机侧 TDD 已覆盖 idle hold / single fire / manual reverse / reverse 边沿门控，并新增 jam abandon / continuous run 计弹 / single_fire_req 清零测试；HUST 语义下 `5000` 仅用于动作计数、`1000+松手` 才执行 DONE 回贴 | In Progress | 1) 烧录本轮 6 项集成层修复后的固件；2) 重新执行空载单发 `5` 发，复核 `DONE` 暴露、恢复段电流与 overshoot；3) 修复前继续禁止空载 `20` 发扩测与实弹 | @Codex |
+
 ## 使用规则
 
 - 每个高风险改动都应检查是否新增/更新风险条目。
@@ -82,7 +87,3 @@
 - Trigger: field count growth or large integer values with small tx buffer.
 - Mitigation: increase frame buffer to `1024` and drop oversized frames instead of sending truncation.
 - Status: Mitigated in code, pending VOFA+ long-run verification.
-
-
-
-

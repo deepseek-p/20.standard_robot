@@ -190,3 +190,31 @@
     trigger zero-current/zero-force only when `DBUS` and `VT03` are both offline.
 - Observability update:
   - `usb_task` extends `event_bits` with `bit8..bit20` to expose VT13 raw key states and keyboard-action pulses for rapid mapping diagnosis.
+
+## 2026-03-06 Supplement: Shoot State Machine Align HUST
+
+- `shoot_control_loop()` now keeps one continuous trigger cascade authority in armed states:
+  - `SHOOT_READY_BULLET` / `SHOOT_READY` / `SHOOT_DONE` all run the same position-loop-to-speed-loop hold on persistent `trigger_ecd_set`.
+  - Removed the former low-authority hold branch (`TRIGGER_POS_MAX_OUT_HOLD`).
+- `trigger_ecd_set` reset points are narrowed to true reset states only:
+  - initialize path, `SHOOT_STOP`, and `SHOOT_READY_FRIC`.
+  - no per-cycle re-track in `SHOOT_READY_BULLET` / `SHOOT_READY`.
+- `SHOOT_DONE` is retained as a compatibility marker only:
+  - `shoot_bullet_control()` still enters `SHOOT_DONE` when `fabs(pos_err) < TRIGGER_POS_THRESHOLD`.
+  - `shoot_set_mode()` now transitions `SHOOT_DONE -> SHOOT_READY_BULLET` on the next control pass.
+- External contracts are unchanged:
+  - `shoot_mode` enum values and telemetry field semantics remain compatible.
+  - DBUS / keyboard / VT03 trigger interpretation remains unchanged.
+
+## 2026-03-07 Supplement: Shoot HUST Control Core Replacement
+
+- `shoot` 内核由“外置 `shoot_logic` 命令/执行层”切换为 `shoot.c` 内联 HUST 风格控制流：
+  - 单发：位置环 -> 速度环串级（一步一格）
+  - 连发：跳过位置环，速度环直接驱动（`3500/4500 rpm`）
+  - 反转：边沿触发的一格回退
+- 速度反馈与速度目标统一为 `rpm` 语义：
+  - `shoot_feedback_update()` 速度滤波输入改为 `speed_rpm` 原值（不再乘 `MOTOR_RPM_TO_SPEED`）
+  - FireWater 中 `shoot.speed/speed_set` 列值域随之变化（rad/s -> rpm）
+- 架构边界不变：
+  - 仍在 `gimbal_task` 1ms 路径内执行
+  - 不新增任务、不新增阻塞调用、不改 CAN 发送节拍

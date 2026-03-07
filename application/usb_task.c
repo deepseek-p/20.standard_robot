@@ -124,6 +124,9 @@ extern shoot_control_t shoot_control;
  * 61:local_heat    -> local shoot heat predictor (milli-scale)
  * 62:bullet_cnt    -> local bullet fired counter (raw)
  * 63:vt03_toe      -> VT03 offline/error flag
+ * 64:trigger_sw    -> trigger microswitch state
+ * 65:reverse_flag  -> trigger reverse recovery active flag
+ * 66:referee_heat  -> referee shooter heat
  */
 
 static uint8_t usb_buf[USB_DEBUG_FRAME_MAX_LEN];
@@ -1274,7 +1277,7 @@ static bool_t usb_emit_firewater_frame(uint32_t now_ms)
     seq = usb_debug_next_seq();
 
     len = snprintf((char *)usb_buf, USB_DEBUG_FRAME_MAX_LEN,
-                   "%lu,%lu,%lu,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld\r\n",
+                   "%lu,%lu,%lu,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld\r\n",
                    now_ms,
                    seq,
 #if WIFI_BRIDGE_ENABLE
@@ -1342,7 +1345,10 @@ static bool_t usb_emit_firewater_frame(uint32_t now_ms)
                     usb_debug_masked_i32(USB_DBG_CH_SHOOT, (int32_t)shoot_control.trigger_ecd_set),
                     usb_debug_masked_fp32_milli(USB_DBG_CH_SHOOT, shoot_control.local_heat),
                     usb_debug_masked_i32(USB_DBG_CH_SHOOT, (int32_t)shoot_control.bullet_fired_count),
-                    usb_debug_masked_u8(USB_DBG_CH_HEALTH, vt03_error));
+                    usb_debug_masked_u8(USB_DBG_CH_HEALTH, vt03_error),
+                    usb_debug_masked_i32(USB_DBG_CH_SHOOT, (int32_t)shoot_control.microswitch_on),
+                    usb_debug_masked_i32(USB_DBG_CH_SHOOT, (int32_t)shoot_control.reverse_flag),
+                    usb_debug_masked_i32(USB_DBG_CH_SHOOT, (int32_t)shoot_control.referee_heat));
 
     if (len <= 0)
     {

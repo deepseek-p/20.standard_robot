@@ -1,6 +1,6 @@
 # CURRENT_STATE（收纳页）
 
-同步日期：`2026-03-02`
+同步日期：`2026-03-07`
 
 ## 当前生效控制语义（以代码为准）
 
@@ -43,21 +43,91 @@
 - 待办：装弹工况闭环验证（收敛时间、稳态误差、电流纹波）；连续 4 轮未闭环，按规则 6.2 下一步应先采数据再改码
 
 ### Shoot 发射链路（摩擦轮 CAN + 拨轮双环 + 热量预测）
-- 状态：In Progress（单发/反转/格数三项缺陷已修复，待回归）
-- 最新文档：`2026-03-02_shoot_single_fire_reverse_grid_fix.md`
+- 状态：**Passed**（空载 + 实弹验证通过，2026-03-07）
+- 最新文档：`2026-03-07_shoot_hust_validation_and_fixes.md`
 - 当前方案：
   - 摩擦轮：双 3508 CAN 速度闭环
   - 拨轮：`trigger_pos_pid`（位置外环）+ `trigger_spd_pid`（速度内环）
-  - 单发：`shoot_bullet_control()` 移除 key=OFF 提前退出，按纯位置环到位后进入 `SHOOT_DONE`
-  - 制动：`SHOOT_DONE/READY_BULLET` 均为位置 PID 持仓，`max_out` 使用 HOLD 限幅（10.0f）
-  - READY_BULLET：目标点不跟随，低限幅位置环抑制 overshoot
-  - BULLET：进入 `shoot_bullet_control()` 时恢复 `max_out=20000`，保证推弹力矩
-  - 门控：零电流门控收窄为 `<= SHOOT_READY_FRIC`，允许 DONE/READY_BULLET 输出受限制动电流
-  - 堵转：反转次数达到 `MAX_REVERSE_COUNT=3` 后放弃本次并回 `READY_BULLET`
-  - 反转：`fn_2` 长按期间持续输出 `reverse_trigger`
-  - 步进：`TRIGGER_ONEGRID` 回调为 `36864`（1/8 turn）
+  - 单发：`SHOOT_BULLET` 位置步进一格后回 `SHOOT_READY_BULLET`
+  - 连发：`SHOOT_CONTINUE_BULLET` 跳过位置环，速度环直驱（`3500/4500 rpm`）
+  - 反转：`reverse` 边沿触发一格回退（无旧堵转状态机）
+  - 目标管理：`trigger_ecd_set` 在 `SHOOT_STOP/SHOOT_READY_FRIC` 回贴反馈，其余 armed 态保持持仓目标
+  - 状态集：`STOP/READY_FRIC/READY_BULLET/BULLET/CONTINUE_BULLET`（5 态）
+  - 步进：`TRIGGER_ONEGRID=36864`（1/8 turn）
   - 热量：`local_heat` 预测 + 裁判热量校准 + `R` 键爆发模式
-- 待办：Keil 编译 + 测试 0~8 回归（重点 4/5/8）+ 单发 20 次统计
+  - 遥测现状：`shoot_mode/given_current/speed/speed_set/trigger_ecd_fdb/trigger_ecd_set/local_heat/bullet_cnt/trigger_sw/reverse_flag/referee_heat` 已可观测
+- 待办：完成 Keil 编译与空载 12 项验收（静态、单发、连发、反转、热量门控）；空载未闭环前继续禁止实弹
+- 2026-03-06 v4 补充：
+  - 本地代码已落地 HUST 风格“命令层 + executor”重构，新增 `application/shoot_logic.c/h`
+  - `trigger_ecd_set` 现在由 executor 独占，手动反转改为 one-grid reverse recover
+  - 长按 `reverse_trigger=1` 已增加边沿门控，避免连续多格回退
+  - `given_current` 已增加 `±8000` 末端限流
+  - FireWater 代码层已补入 `trigger_sw/reverse_flag/referee_heat`
+  - 主机侧 `tests/shoot_logic_test.c` 已通过，覆盖 idle hold、single fire、manual reverse 和 reverse 边沿门控
+  - 但当前仍未完成 Keil 编译、烧录和新固件板端空载 20 发复验，所以状态不能改判为 `Passed`
+- 2026-03-06 v5 补充：
+  - `COM22` 板端实测已持续输出 `67` 列 FireWater 帧
+  - `D:\tools\stm32-telemetry-mcp\frame_parser.py` 原先仍按 `65` 列解析，导致 `capture()` 返回 `0` 帧
+  - 本轮已将 parser 补齐到 `67` 列，并新增 `trigger_sw/reverse_flag/referee_heat` 映射
+  - 修复后用 `stm32-telemetry-mcp` 试采 `COM22`，`2.5s` 内拿到 `123` 帧
+  - 当前板端验收阻塞点已不再是串口/工具链，而是尚未完成新的空载 20 发采集
+- 2026-03-06 v6 补充：
+  - 新固件上板后执行 READY 静态 `5s` 复验，证据见 `data/tune_2026-03-06_shoot_hust_acceptance_live_003_static_ready.csv`
+  - `shoot_mode` 全程 `2(READY_BULLET)`，`trigger_ecd_set` 全程固定 `0`
+  - 但 `trigger_ecd_fdb` 在 `-90618 ~ 96767` 间往返，误差符号翻转 `41` 次
+  - `trigger_cur` 全程饱和在 `±8000`，`trigger_spd_set` 全程打满 `±8000`
+  - `trigger_sw=0`、`reverse_flag=0` 全程未变化，说明 READY 自激并非微动或反转路径触发
+  - 因 READY 静态门再次失败，空载单发 20 次与实弹继续禁止
+- 2026-03-06 v7 补充：
+  - 根因已进一步收敛到“未就绪阶段 stale setpoint”
+  - 证据是工具恢复后的 STOP 基线中，`trigger_ecd_fdb=-258020` 但 `trigger_ecd_set=0`
+  - 说明 executor 在 `STOP/READY_FRIC` 阶段只在首次进入 idle hold 时贴目标，早期无效反馈值会被一直带到 `READY_BULLET`
+  - 已在 `application/shoot_logic.c` 中改为：`!arm_enable || !fric_ready` 时每周期执行 `trigger_ecd_set = trigger_ecd_fdb`
+  - 新增主机侧回归测试 `test_disarmed_or_wait_fric_keeps_target_attached_to_latest_feedback()`，用于防止启动阶段再次锁住旧 setpoint
+  - 当前仍待烧录并重做 READY 静态 5s 复验，验证该修复是否足以消除自激
+- 2026-03-06 v8 补充：
+  - 本轮修复烧录后，STOP 基线板端复验已通过，证据见 `data/tune_2026-03-06_shoot_hust_acceptance_live_004_postfix_stop_baseline.csv`
+  - `shoot_mode=0` 全程稳定，`trigger_ecd_fdb = trigger_ecd_set = -4042`
+  - `fdb-set` 全程 `0`，`trigger_cur=0`，说明 stale setpoint 已不再停在旧值
+  - 下一步只剩重新执行 READY 静态 `5s`，判断持仓自激是否已一并消失
+- 2026-03-06 v9 补充：
+  - 修复后 READY 静态 `5s` 复验已通过，证据见 `data/tune_2026-03-06_shoot_hust_acceptance_live_005_ready_static_after_fix.csv`
+  - `shoot_mode` 正常过渡到 `READY_BULLET` 后稳定，`trigger_ecd_fdb = trigger_ecd_set = -4041`
+  - `trigger_cur/trigger_spd/trigger_spd_set` 全程为 `0`，不再出现静态持仓自激
+  - `trigger_sw=0`、`reverse_flag=0` 全程稳定
+  - 当前门禁已从“禁止进入单发”推进到“允许进入空载单发 20 次”
+- 2026-03-06 v10 补充：
+  - 修复后空载单发 `5` 发预验收失败，证据见 `data/tune_2026-03-06_shoot_hust_acceptance_live_006_empty_single_5shots.csv`
+  - 通过项：`bullet_cnt` `0->5`，每次只 `+1`；未观测到 `CONTINUE_BULLET`；`READY_BULLET` 内未观察到周期性 setpoint 回写
+  - 失败项：单发后 `trigger_cur` 在各发间恢复区间持续饱和 `±8000`，未回到低电流；`trigger_ecd_fdb-trigger_ecd_set` 峰值明显劣于基线 `data/tune_2026-03-06_003.csv`
+  - 当前同口径前 `5` 发 `peak|fdb-set|` 最大值 `99616`，基线前 `5` 发为 `53924`
+  - 因动态空载门未通过，后续 `15` 发与实弹继续禁止
+- 2026-03-06 v11 补充：
+  - 已按 HUST 单发收尾语义再次修正 executor
+  - 当前实现不再在 `|pos_err| < 5000` 时立刻回贴当前位置，而是：
+    - `5000` 仅作为本发动作计数阈值
+    - 只有在输入已释放且 `|pos_err| < 1000` 时，才 `DONE + 回贴当前位`
+  - 主机侧新增 2 条回归测试，覆盖“不要过早 DONE”和“按住 trigger 不得提前 DONE”
+  - 当前待烧录并重新执行空载单发 `5` 发预验收
+- 2026-03-06 v12 补充：
+  - 已烧录 HUST 收尾语义修复，并完成空载单发 `5` 发复验，证据见 `data/tune_2026-03-06_shoot_hust_acceptance_live_007_empty_single_5shots_hust_finish.csv`
+  - 通过项：`bullet_cnt` `0->5`，每次只 `+1`；未观测到 `CONTINUE_BULLET`；`READY_BULLET` 内未观察到周期性 setpoint 回写
+  - 改善项：前 `5` 发 `peak|fdb-set|` 最大值由 `99616` 回落到 `83377`，平均值由 `76977.6` 回落到 `73486.6`
+  - 未通过项：相对基线 `data/tune_2026-03-06_003.csv` 仍明显恶化；各发恢复区间 `trigger_cur` 仍几乎全程饱和 `±8000`；`SHOOT_DONE` 未稳定显式出现
+  - 当前判定仍为 `Failed`，继续禁止空载 `20` 发扩测与实弹
+- 2026-03-06 v13 补充：
+  - 已完成 shoot executor 集成层 6 项修复：
+    - 持仓入口双 PID 清零
+    - jam request flag 化，移除 `shoot.c` 对 executor / command 内部字段的越权赋值
+    - 连发计弹移入 executor
+    - `trigger_ecd_set/fdb/last_fire` 改为 `int32_t`
+    - 删除 `SHOOT_READY` 死代码但保持 `shoot_mode` 数值兼容
+    - `single_fire_req` 消费后显式清零
+  - 主机侧新增 3 条测试并已全绿：
+    - jam abandon 回 idle hold
+    - continuous run one-grid 计弹
+    - single_fire_req 消费后清零
+  - 当前仍未重新烧录板端，因此 Shoot 总状态保持 `Failed`，下一步是复烧后重做空载 `5` 发
 
 ### WiFi 桥接（USART1 + ESP32）
 - 状态：Blocked - 需数据
@@ -93,9 +163,10 @@
   - Adaptive FF: `GAMMA_BASE=0.002, GAMMA_ERR_GAIN=0.05, GAMMA_MAX=0.02, ALPHA_DOT_MAX=50.0`
 - `application/shoot.h`：
   - `TRIGGER_POS_PID` = `0.4/0.02/0.0, max_out=20000, max_iout=1500`
-  - `TRIGGER_SPD_PID` = `6.0/3.0/0.0, max_out=10000, max_iout=1000`
-  - `TRIGGER_POS_MAX_OUT_HOLD=10.0, TRIGGER_POS_MAX_OUT_FIRE=20000.0, MAX_REVERSE_COUNT=3`
+  - `TRIGGER_SPD_PID` = `6.2/3.2/0.0, max_out=10000, max_iout=1000, deadzone=50`
+  - `TRIGGER_CAN_CURRENT_LIMIT=10000`（与 HUST speed PID OutMax 对齐）
   - `TRIGGER_ONEGRID=36864, TRIGGER_POS_THRESHOLD=5000`
+  - `FRIC_SPEED_LOW=4900, FRIC_SPEED_HIGH=7400`（限 25m/s 弹速）
   - `HEAT_LIMIT_SAFE=80, HEAT_LIMIT_BURST=180, HEAT_COOL_RATE=12/s`
 
 ### VT03 UART 模式切换（USART1/USART6）
@@ -153,9 +224,30 @@
 - UP 小陀螺平移画圆：`risk_log.md` 2026-02-24 条目（Mitigated，缺 VOFA+/长跑）
 - Pitch 自适应前馈迭代：`risk_log.md` 2026-02-27 条目（In Progress，按规则 6.2 需先采数据）
 - Shoot 拨轮双环与热量预测：`risk_log.md` 2026-02-28 条目（In Progress，待实机验收）
+- Shoot 状态机 HUST 对齐：`risk_log.md` 2026-03-06 条目（Open，空载单发后 `READY_BULLET` 持仓持续自激）
 - Shoot 单发/反转/格数修复：`risk_log.md` 2026-03-02 条目（In Progress，待回归）
 - VT03 假边沿/鼠标噪声自动开火：`risk_log.md` 2026-03-02 条目（In Progress，待回归）
 - Shoot BULLET 微动提前退出：`risk_log.md` 2026-03-02 条目（In Progress，待回归）
 - Shoot READY_BULLET overshoot 自由滑行：`risk_log.md` 2026-03-02 条目（In Progress，待回归）
 - Shoot READY_BULLET 堵转满电流：`risk_log.md` 2026-03-02 条目（In Progress，待回归）
 - Shoot 堵转反转超限与放弃策略：`risk_log.md` 2026-03-02 条目（In Progress，待回归）
+- Shoot HUST 控制核心替换：`risk_log.md` 2026-03-07 条目（In Progress，待 Keil/板端复验）
+
+- 2026-03-06 v14 补充：
+  - 已按 READY_BULLET 极限环根因收窄 hold 阶段位置环限幅：
+    - `TRIGGER_POS_MAX_OUT_HOLD = 15.0f`
+    - `TRIGGER_POS_MAX_IOUT_HOLD = 10.0f`
+  - `SHOOT_READY_BULLET/SHOOT_DONE` 分支已同步切换 `max_out/max_iout`
+  - `shoot_bullet_control()` 中 fire 阶段已恢复 `max_out/max_iout`
+  - 主机侧既有测试继续通过
+  - 当前仍未重新烧录板端，因此 Shoot 总状态继续保持 `Failed`
+
+- 2026-03-07 v16 补充：
+  - 板端验证完成，Shoot 状态从 `In Progress` 升级为 `Passed`
+  - 测试通过项：STOP 基线、Enable→Ready、单发、连发、反转、实弹
+  - 修复 3 项：
+    1. 移除 Butterworth 速度滤波器（振荡根因）
+    2. VT03 trigger 改用 `vt03_ext.trigger` 原始持续状态（连发无法触发根因）
+    3. `FRIC_SPEED_HIGH` 8000→7400（限 25m/s 弹速）
+  - 累计发射 137 发（空载+实弹），无异常
+  - 详见 `docs/ai_sessions/2026-03-07_shoot_hust_validation_and_fixes.md`

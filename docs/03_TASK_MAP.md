@@ -107,3 +107,26 @@
 - Task scheduling unchanged:
   - no task creation changes in `Src/freertos.c`;
   - no priority, stack size, or period change.
+
+## 2026-03-06 Supplement: Shoot State Machine Align HUST
+
+- `gimbalTask` (`application/shoot.c`) trigger control path update:
+  - `SHOOT_READY_BULLET` / `SHOOT_READY` / `SHOOT_DONE` now keep active position-loop-to-speed-loop hold on persistent `trigger_ecd_set`.
+  - removed low-authority hold dependency (`TRIGGER_POS_MAX_OUT_HOLD`).
+  - target re-track `trigger_ecd_set = trigger_ecd_fdb` remains only in reset states (`SHOOT_STOP`, `SHOOT_READY_FRIC`, init path).
+  - `SHOOT_DONE` now acts as a one-cycle compatibility transition to `SHOOT_READY_BULLET` in `shoot_set_mode()`.
+- Scheduling and RTOS impact:
+  - no task creation/priority/period change.
+  - no new blocking calls; shoot control remains on existing 1ms `gimbal_task` path.
+
+## 2026-03-07 Supplement: Shoot Core Replacement (HUST)
+
+- `gimbalTask` 内的 `shoot_control_loop` 控制语义更新：
+  - `SHOOT_READY_BULLET`：持续位置 hold（串级 PID）
+  - `SHOOT_BULLET`：单发一步一格（串级 PID）
+  - `SHOOT_CONTINUE_BULLET`：速度环直驱（不经位置环）
+- 速度反馈单位改为 `rpm`：
+  - `shoot_control.speed` / `shoot_control.speed_set` 的遥测量级从 `rad/s` 切到 `rpm`
+- 调度影响：
+  - 无任务创建/优先级/周期变更
+  - 无新增阻塞路径

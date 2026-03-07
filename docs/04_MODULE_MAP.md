@@ -250,3 +250,29 @@
   - keeps FireWater fixed-field frame length unchanged;
   - extends `event_bits` with `bit8..20` for VT13 raw key states and `keyboard_cmd` pulse observability.
 
+
+## 2026-03-06 Supplement: Shoot State Machine Align HUST
+
+- `application/shoot.c`:
+  - `SHOOT_READY_BULLET` / `SHOOT_READY` / `SHOOT_DONE` now share the same active position hold authority (`trigger_pos_pid -> trigger_spd_pid` cascade).
+  - `SHOOT_READY` no longer resets `trigger_ecd_set` to feedback each cycle.
+  - `SHOOT_DONE` no longer waits for low-speed timeout; it is converted into a compatibility transition back to `SHOOT_READY_BULLET` on next mode update.
+- `application/shoot.h`:
+  - removed deprecated macros `SHOOT_DONE_KEY_OFF_TIME` and `TRIGGER_POS_MAX_OUT_HOLD`.
+  - removed stale state field `key_time` from `shoot_control_t`.
+- Unchanged contracts:
+  - `shoot_mode_e` enum values are unchanged.
+  - continuous-fire and anti-stall reverse bookkeeping interfaces are unchanged.
+
+## 2026-03-07 Supplement: Shoot Core Replacement (HUST)
+
+- `application/shoot.h`:
+  - 枚举收敛为 5 态：`STOP/READY_FRIC/READY_BULLET/BULLET/CONTINUE_BULLET`
+  - 拨弹速度环参数切换到 HUST rpm 参数组（`TRIGGER_SPD_KP=6.2, KI=3.2`）
+  - 删除旧 `shoot_logic` 相关状态字段（`jam_*`、`*_dbg` 等）
+- `application/shoot.c`:
+  - 删除 `#include "shoot_logic.h"`，模式转换内联实现
+  - 连发路径切换为速度环直驱（`PULLER_SPEED_NORMAL/HIGH_FREQ`）
+  - 速度滤波输入从 `speed_rpm * MOTOR_RPM_TO_SPEED` 改为 `speed_rpm`
+- `MDK-ARM/standard_robot.uvprojx`:
+  - 删除 `shoot_logic.c` 文件项（工程不再编译该模块）
