@@ -1,6 +1,6 @@
 # CURRENT_STATE（收纳页）
 
-同步日期：`2026-03-07`
+同步日期：`2026-03-13`
 
 ## 当前生效控制语义（以代码为准）
 
@@ -14,10 +14,14 @@
 ## 各模块当前状态
 
 ### Chassis Follow（MID 跟随）
-- 状态：Mitigated（待长跑）
-- 参数：`Kp=8.0, Ki=0.5, Kd=0.0, max_out=3.0, max_iout=1.0`；刹车区间 `start=PI*0.6, end=PI*0.95`
-- 最新文档：`2026-02-23_chassis_follow_wraparound_brake_fix.md`
-- 待办：长跑温升验证
+- 状态：Mitigated（方向已修复，Ki 待调）
+- 参数：`Kp=2.0, Ki=0.0, Kd=100.0, max_out=3.0, max_iout=1.0`
+- PID 方向：`wz_set = PID_calc(...)` 无负号（YAW_TURN=0 时）
+- 刹车逻辑：已删除（旧逻辑 brake_factor=0 死锁 + PID 方向修正后不需要）
+- YAW_OFFSET_CORRECTION=351（gimbal_task.h，手动对齐测量值）
+- 最新文档：`2026-03-13_chassis_follow_pid_sign_fix.md`
+- 已验证：PID 方向正确，前后左右平移方向正确，无振荡（Ki=0 时）
+- 待办：Ki 遥测调参（Ki=0.05+Kd=100 振荡，需更大 Kd 或更小 Ki）；长跑温升验证
 
 ### Chassis SelfProtect（UP 小陀螺）
 - 状态：Mitigated（口述，缺 VOFA+/长跑）
@@ -153,8 +157,8 @@
 
 ## 当前关键参数快照
 
-- `application/chassis_task.h`：`CHASSIS_FOLLOW_GIMBAL_PID` = `8.0/0.5/0.0/3.0/1.0`
-- `application/chassis_task.c`：`BRAKE_START=PI*0.6, BRAKE_END=PI*0.95`
+- `application/chassis_task.h`：`CHASSIS_FOLLOW_GIMBAL_PID` = `2.0/0.0/100.0/3.0/1.0`
+- `application/chassis_task.c`：刹车逻辑已删除，`wz_set = PID_calc(...)` 无负号
 - `application/gimbal_task.h`：
   - `PITCH_SPEED_PID` = `800/10/0/15000/3000`
   - `PITCH_ENCODE_RELATIVE_PID` = `24.0/0.0/0.0/10.0/0.5`
@@ -220,7 +224,7 @@
 
 ## 风险日志对应关系
 
-- MID 跟随自旋/振荡：`risk_log.md` 2026-02-23 条目（Mitigated，待长跑）
+- MID 跟随 PID 方向反转：`risk_log.md` 2026-02-23 条目（Mitigated：方向已修复，Ki 待调）
 - UP 小陀螺平移画圆：`risk_log.md` 2026-02-24 条目（Mitigated，缺 VOFA+/长跑）
 - Pitch 自适应前馈迭代：`risk_log.md` 2026-02-27 条目（In Progress，按规则 6.2 需先采数据）
 - Shoot 拨轮双环与热量预测：`risk_log.md` 2026-02-28 条目（In Progress，待实机验收）
