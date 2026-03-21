@@ -41,8 +41,10 @@
 #if VT03_ENABLE
 #include "vt03_link.h"
 #endif
+#include "referee.h"
 
 extern shoot_control_t shoot_control;
+extern ext_shoot_data_t shoot_data_t;
 
 #define USB_DEBUG_FRAME_MAX_LEN 1024u
 #define USB_DEBUG_RAD_SCALE     1000.0f
@@ -1281,7 +1283,7 @@ static bool_t usb_emit_firewater_frame(uint32_t now_ms)
     seq = usb_debug_next_seq();
 
     len = snprintf((char *)usb_buf, USB_DEBUG_FRAME_MAX_LEN,
-                   "%lu,%lu,%lu,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld\r\n",
+                   "%lu,%lu,%lu,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld\r\n",
                    now_ms,
                    seq,
 #if WIFI_BRIDGE_ENABLE
@@ -1354,7 +1356,8 @@ static bool_t usb_emit_firewater_frame(uint32_t now_ms)
                     usb_debug_masked_i32(USB_DBG_CH_SHOOT, (int32_t)shoot_control.reverse_flag),
                     usb_debug_masked_i32(USB_DBG_CH_SHOOT, (int32_t)shoot_control.referee_heat),
                     usb_debug_masked_fp32_milli(USB_DBG_CH_GIMBAL, gimbal_ok ? gimbal_snapshot.pitch_gyro : (fp32)0.0f),
-                    usb_debug_masked_fp32_milli(USB_DBG_CH_GIMBAL, gimbal_ok ? gimbal_snapshot.pitch_gyro_set : (fp32)0.0f));
+                    usb_debug_masked_fp32_milli(USB_DBG_CH_GIMBAL, gimbal_ok ? gimbal_snapshot.pitch_gyro_set : (fp32)0.0f),
+                    usb_debug_masked_fp32_milli(USB_DBG_CH_SHOOT, shoot_data_t.bullet_speed));
 
     if (len <= 0)
     {
