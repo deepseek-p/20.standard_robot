@@ -3,7 +3,7 @@
   * @file       can_receive.c/h
   * @brief      there is CAN interrupt function  to receive motor data,
   *             and CAN send function to send motor current to control motor.
-  *             ÕâÀïÊÇCANÖÐ¶Ï½ÓÊÕº¯Êý£¬½ÓÊÕµç»úÊý¾Ý,CAN·¢ËÍº¯Êý·¢ËÍµç»úµçÁ÷¿ØÖÆµç»ú.
+  *             ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½CANï¿½Ð¶Ï½ï¿½ï¿½Õºï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Õµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½,CANï¿½ï¿½ï¿½Íºï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Íµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æµï¿½ï¿½.
   * @note       
   * @history
   *  Version    Date            Author          Modification
@@ -65,11 +65,11 @@ typedef struct
   * @retval         none
   */
 /**
-  * @brief          ·¢ËÍµç»ú¿ØÖÆµçÁ÷(0x205,0x206,0x207,0x208)
-  * @param[in]      yaw: (0x205) 6020µç»ú¿ØÖÆµçÁ÷, ·¶Î§ [-30000,30000]
-  * @param[in]      pitch: (0x206) 6020µç»ú¿ØÖÆµçÁ÷, ·¶Î§ [-30000,30000]
-  * @param[in]      shoot: (0x207) 2006µç»ú¿ØÖÆµçÁ÷, ·¶Î§ [-10000,10000]
-  * @param[in]      rev: (0x208) ±£Áô£¬µç»ú¿ØÖÆµçÁ÷
+  * @brief          ï¿½ï¿½ï¿½Íµï¿½ï¿½ï¿½ï¿½ï¿½Æµï¿½ï¿½ï¿½(0x205,0x206,0x207,0x208)
+  * @param[in]      yaw: (0x205) 6020ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æµï¿½ï¿½ï¿½, ï¿½ï¿½Î§ [-30000,30000]
+  * @param[in]      pitch: (0x206) 6020ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æµï¿½ï¿½ï¿½, ï¿½ï¿½Î§ [-30000,30000]
+  * @param[in]      shoot: (0x207) 2006ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æµï¿½ï¿½ï¿½, ï¿½ï¿½Î§ [-10000,10000]
+  * @param[in]      rev: (0x208) ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æµï¿½ï¿½ï¿½
   * @retval         none
   */
 extern void CAN_cmd_gimbal(int16_t yaw, int16_t pitch, int16_t shoot, int16_t rev);
@@ -80,7 +80,7 @@ extern void CAN_cmd_gimbal(int16_t yaw, int16_t pitch, int16_t shoot, int16_t re
   * @retval         none
   */
 /**
-  * @brief          ·¢ËÍIDÎª0x700µÄCAN°ü,Ëü»áÉèÖÃ3508µç»ú½øÈë¿ìËÙÉèÖÃID
+  * @brief          ï¿½ï¿½ï¿½ï¿½IDÎª0x700ï¿½ï¿½CANï¿½ï¿½,ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½3508ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ID
   * @param[in]      none
   * @retval         none
   */
@@ -95,11 +95,11 @@ extern void CAN_cmd_chassis_reset_ID(void);
   * @retval         none
   */
 /**
-  * @brief          ·¢ËÍµç»ú¿ØÖÆµçÁ÷(0x201,0x202,0x203,0x204)
-  * @param[in]      motor1: (0x201) 3508µç»ú¿ØÖÆµçÁ÷, ·¶Î§ [-16384,16384]
-  * @param[in]      motor2: (0x202) 3508µç»ú¿ØÖÆµçÁ÷, ·¶Î§ [-16384,16384]
-  * @param[in]      motor3: (0x203) 3508µç»ú¿ØÖÆµçÁ÷, ·¶Î§ [-16384,16384]
-  * @param[in]      motor4: (0x204) 3508µç»ú¿ØÖÆµçÁ÷, ·¶Î§ [-16384,16384]
+  * @brief          ï¿½ï¿½ï¿½Íµï¿½ï¿½ï¿½ï¿½ï¿½Æµï¿½ï¿½ï¿½(0x201,0x202,0x203,0x204)
+  * @param[in]      motor1: (0x201) 3508ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æµï¿½ï¿½ï¿½, ï¿½ï¿½Î§ [-16384,16384]
+  * @param[in]      motor2: (0x202) 3508ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æµï¿½ï¿½ï¿½, ï¿½ï¿½Î§ [-16384,16384]
+  * @param[in]      motor3: (0x203) 3508ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æµï¿½ï¿½ï¿½, ï¿½ï¿½Î§ [-16384,16384]
+  * @param[in]      motor4: (0x204) 3508ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æµï¿½ï¿½ï¿½, ï¿½ï¿½Î§ [-16384,16384]
   * @retval         none
   */
 extern void CAN_cmd_chassis(int16_t motor1, int16_t motor2, int16_t motor3, int16_t motor4);
@@ -110,9 +110,9 @@ extern void CAN_cmd_chassis(int16_t motor1, int16_t motor2, int16_t motor3, int1
   * @retval         motor data point
   */
 /**
-  * @brief          ·µ»Øyaw 6020µç»úÊý¾ÝÖ¸Õë
+  * @brief          ï¿½ï¿½ï¿½ï¿½yaw 6020ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¸ï¿½ï¿½
   * @param[in]      none
-  * @retval         µç»úÊý¾ÝÖ¸Õë
+  * @retval         ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¸ï¿½ï¿½
   */
 extern const motor_measure_t *get_yaw_gimbal_motor_measure_point(void);
 
@@ -122,9 +122,9 @@ extern const motor_measure_t *get_yaw_gimbal_motor_measure_point(void);
   * @retval         motor data point
   */
 /**
-  * @brief          ·µ»Øpitch 6020µç»úÊý¾ÝÖ¸Õë
+  * @brief          ï¿½ï¿½ï¿½ï¿½pitch 6020ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¸ï¿½ï¿½
   * @param[in]      none
-  * @retval         µç»úÊý¾ÝÖ¸Õë
+  * @retval         ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¸ï¿½ï¿½
   */
 extern const motor_measure_t *get_pitch_gimbal_motor_measure_point(void);
 
@@ -134,9 +134,9 @@ extern const motor_measure_t *get_pitch_gimbal_motor_measure_point(void);
   * @retval         motor data point
   */
 /**
-  * @brief          ·µ»Ø²¦µ¯µç»ú 2006µç»úÊý¾ÝÖ¸Õë
+  * @brief          ï¿½ï¿½ï¿½Ø²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ 2006ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¸ï¿½ï¿½
   * @param[in]      none
-  * @retval         µç»úÊý¾ÝÖ¸Õë
+  * @retval         ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¸ï¿½ï¿½
   */
 extern const motor_measure_t *get_trigger_motor_measure_point(void);
 
@@ -146,9 +146,9 @@ extern const motor_measure_t *get_trigger_motor_measure_point(void);
   * @retval         motor data point
   */
 /**
-  * @brief          ·µ»Øµ×ÅÌµç»ú 3508µç»úÊý¾ÝÖ¸Õë
-  * @param[in]      i: µç»ú±àºÅ,·¶Î§[0,3]
-  * @retval         µç»úÊý¾ÝÖ¸Õë
+  * @brief          ï¿½ï¿½ï¿½Øµï¿½ï¿½Ìµï¿½ï¿½ 3508ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¸ï¿½ï¿½
+  * @param[in]      i: ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½,ï¿½ï¿½Î§[0,3]
+  * @retval         ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¸ï¿½ï¿½
   */
 extern const motor_measure_t *get_chassis_motor_measure_point(uint8_t i);
 extern void CAN_cmd_fric(int16_t fric1, int16_t fric2);

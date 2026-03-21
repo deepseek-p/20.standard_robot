@@ -45,7 +45,7 @@
 #define CHASSIS_MODE_CHANNEL 0
 //rocker value (max 660) change to vertial speed (m/s) 
 //ң����ǰ��ҡ�ˣ�max 660��ת���ɳ���ǰ���ٶȣ�m/s���ı���
-#define CHASSIS_VX_RC_SEN 0.006f
+#define CHASSIS_VX_RC_SEN -0.006f
 //rocker value (max 660) change to horizontal speed (m/s)
 //ң��������ҡ�ˣ�max 660��ת���ɳ��������ٶȣ�m/s���ı���
 #define CHASSIS_VY_RC_SEN 0.005f
@@ -87,8 +87,8 @@
 #define SWING_KEY KEY_PRESSED_OFFSET_CTRL
 //chassi forward, back, left, right key
 //����ǰ�����ҿ��ư���
-#define CHASSIS_FRONT_KEY KEY_PRESSED_OFFSET_W
-#define CHASSIS_BACK_KEY KEY_PRESSED_OFFSET_S
+#define CHASSIS_FRONT_KEY KEY_PRESSED_OFFSET_S
+#define CHASSIS_BACK_KEY KEY_PRESSED_OFFSET_W
 #define CHASSIS_LEFT_KEY KEY_PRESSED_OFFSET_A
 #define CHASSIS_RIGHT_KEY KEY_PRESSED_OFFSET_D
 

@@ -127,6 +127,10 @@ extern shoot_control_t shoot_control;
  * 64:trigger_sw    -> trigger microswitch state
  * 65:reverse_flag  -> trigger reverse recovery active flag
  * 66:referee_heat  -> referee shooter heat
+ *
+ * --- appended after supercap/power block (indices vary by build) ---
+ * N-1:pitch_gyro    -> pitch gyro speed feedback (milli-scale)
+ * N  :pitch_gyro_set-> pitch gyro speed setpoint (milli-scale)
  */
 
 static uint8_t usb_buf[USB_DEBUG_FRAME_MAX_LEN];
@@ -1277,7 +1281,7 @@ static bool_t usb_emit_firewater_frame(uint32_t now_ms)
     seq = usb_debug_next_seq();
 
     len = snprintf((char *)usb_buf, USB_DEBUG_FRAME_MAX_LEN,
-                   "%lu,%lu,%lu,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld\r\n",
+                   "%lu,%lu,%lu,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld\r\n",
                    now_ms,
                    seq,
 #if WIFI_BRIDGE_ENABLE
@@ -1348,7 +1352,9 @@ static bool_t usb_emit_firewater_frame(uint32_t now_ms)
                     usb_debug_masked_u8(USB_DBG_CH_HEALTH, vt03_error),
                     usb_debug_masked_i32(USB_DBG_CH_SHOOT, (int32_t)shoot_control.microswitch_on),
                     usb_debug_masked_i32(USB_DBG_CH_SHOOT, (int32_t)shoot_control.reverse_flag),
-                    usb_debug_masked_i32(USB_DBG_CH_SHOOT, (int32_t)shoot_control.referee_heat));
+                    usb_debug_masked_i32(USB_DBG_CH_SHOOT, (int32_t)shoot_control.referee_heat),
+                    usb_debug_masked_fp32_milli(USB_DBG_CH_GIMBAL, gimbal_ok ? gimbal_snapshot.pitch_gyro : (fp32)0.0f),
+                    usb_debug_masked_fp32_milli(USB_DBG_CH_GIMBAL, gimbal_ok ? gimbal_snapshot.pitch_gyro_set : (fp32)0.0f));
 
     if (len <= 0)
     {

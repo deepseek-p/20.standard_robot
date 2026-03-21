@@ -33,8 +33,8 @@
 #include "remote_control.h"
 //pitch speed close-loop PID params, max out and max iout
 //pitch �ٶȻ� PID�����Լ� PID���������������
-#define PITCH_SPEED_PID_KP        800.0f
-#define PITCH_SPEED_PID_KI        10.0f
+#define PITCH_SPEED_PID_KP        6500.0f
+#define PITCH_SPEED_PID_KI        0.0f
 #define PITCH_SPEED_PID_KD        0.0f
 #define PITCH_SPEED_PID_MAX_OUT   15000.0f
 #define PITCH_SPEED_PID_MAX_IOUT  3000.0f
@@ -74,13 +74,15 @@
 #define PITCH_ENCODE_RELATIVE_PID_MAX_IOUT 0.5f
 
 // Pitch adaptive gravity feedforward (single parameter b_hat)
-#define PITCH_FF_GAMMA_BASE     0.005f
-#define PITCH_FF_GAMMA_ERR_GAIN 0.5f
-#define PITCH_FF_GAMMA_MAX      0.05f
+#define PITCH_FF_GAMMA_BASE     0.0005f
+#define PITCH_FF_GAMMA_ERR_GAIN 0.05f
+#define PITCH_FF_GAMMA_MAX      0.001f
 #define PITCH_FF_B_INIT         0.0f
 #define PITCH_FF_B_MAX          15000.0f
 #define PITCH_FF_SPEED_TH       0.5f
 #define PITCH_FF_ALPHA_DOT_MAX  500.0f
+#define PITCH_FF_FREEZE_RC_DEADZONE   30      // RC stick deadzone for freeze detection (raw value, range ±660)
+#define PITCH_FF_FREEZE_HOLD_MS       300     // freeze release delay (ms, decremented at 1kHz)
 //yaw encode angle close-loop PID params, max out and max iout
 //yaw �ǶȻ� �Ƕ��ɱ����� PID�����Լ� PID���������������
 #define YAW_ENCODE_RELATIVE_PID_KP        8.0f

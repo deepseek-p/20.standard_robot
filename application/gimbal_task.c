@@ -924,10 +924,20 @@ static void gimbal_feedback_update(gimbal_control_t *feedback_update)
 #else
         feedback_update->gimbal_pitch_motor.motor_gyro = pitch_ecd_speed_filtered;
 #endif
+        // ENCODE 模式: 速度反馈改用陀螺仪 (免疫底盘加速度扰动)
+        // 编码器速度保留在 pitch_ecd_speed_filtered 供调试/回退
+        // PITCH_TURN=1 时编码器取反, 陀螺仪也需取反以匹配位置环符号约定
+#if PITCH_TURN
+        feedback_update->gimbal_pitch_motor.motor_gyro =
+            *(feedback_update->gimbal_INT_gyro_point + INS_GYRO_X_ADDRESS_OFFSET);
+#else
+        feedback_update->gimbal_pitch_motor.motor_gyro =
+            -*(feedback_update->gimbal_INT_gyro_point + INS_GYRO_X_ADDRESS_OFFSET);
+#endif
     }
     else
     {
-        feedback_update->gimbal_pitch_motor.motor_gyro = *(feedback_update->gimbal_INT_gyro_point + INS_GYRO_Y_ADDRESS_OFFSET);
+        feedback_update->gimbal_pitch_motor.motor_gyro = -*(feedback_update->gimbal_INT_gyro_point + INS_GYRO_X_ADDRESS_OFFSET);
     }
 
     feedback_update->gimbal_yaw_motor.absolute_angle = *(feedback_update->gimbal_INT_angle_point + INS_YAW_ADDRESS_OFFSET);
@@ -1273,7 +1283,8 @@ static void gimbal_motor_relative_angle_control(gimbal_motor_t *gimbal_motor)
         gimbal_motor->motor_gyro,
         gimbal_motor->motor_gyro_set);
 
-    // Pitch adaptive gravity feedforward (pitch only)
+    // Pitch adaptive gravity feedforward
+#if 1
     if (gimbal_motor == &gimbal_control.gimbal_pitch_motor)
     {
         // feedforward: pure bias compensation
@@ -1289,9 +1300,30 @@ static void gimbal_motor_relative_angle_control(gimbal_motor_t *gimbal_motor)
         else if (I_total < -16000.0f) I_total = -16000.0f;
         gimbal_motor->current_set = I_total;
 
-        // quasi-static condition: speed only, no saturation gate
+        // --- freeze gamma during chassis acceleration ---
+        bool_t freeze_flag;
+        {
+            static uint16_t freeze_hold_cnt = 0;
+            const RC_ctrl_t *rc = gimbal_control.gimbal_rc_ctrl;
+            int16_t chassis_vx_ch = rc->rc.ch[1];  // CHASSIS_X_CHANNEL = 1
+            int16_t chassis_vy_ch = rc->rc.ch[0];  // CHASSIS_Y_CHANNEL = 0
+            bool_t chassis_moving =
+                (chassis_vx_ch > PITCH_FF_FREEZE_RC_DEADZONE || chassis_vx_ch < -PITCH_FF_FREEZE_RC_DEADZONE) ||
+                (chassis_vy_ch > PITCH_FF_FREEZE_RC_DEADZONE || chassis_vy_ch < -PITCH_FF_FREEZE_RC_DEADZONE) ||
+                (rc->key.v & KEY_PRESSED_OFFSET_W) ||
+                (rc->key.v & KEY_PRESSED_OFFSET_S) ||
+                (rc->key.v & KEY_PRESSED_OFFSET_A) ||
+                (rc->key.v & KEY_PRESSED_OFFSET_D);
+            if (chassis_moving)
+                freeze_hold_cnt = PITCH_FF_FREEZE_HOLD_MS;
+            else if (freeze_hold_cnt > 0)
+                freeze_hold_cnt--;
+            freeze_flag = (freeze_hold_cnt > 0);
+        }
+
+        // quasi-static condition: speed gate + freeze gate
         fp32 speed = gimbal_motor->motor_gyro;
-        if (fabsf(speed) < PITCH_FF_SPEED_TH)
+        if (!freeze_flag && fabsf(speed) < PITCH_FF_SPEED_TH)
         {
             fp32 error = I_pid;
 #if PITCH_TURN
@@ -1324,6 +1356,9 @@ static void gimbal_motor_relative_angle_control(gimbal_motor_t *gimbal_motor)
         // non-pitch motor (yaw): no feedforward
         gimbal_motor->current_set = I_pid;
     }
+#else
+    gimbal_motor->current_set = I_pid;
+#endif
 
     gimbal_motor->given_current = (int16_t)(gimbal_motor->current_set);
 }
