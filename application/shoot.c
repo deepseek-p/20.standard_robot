@@ -45,6 +45,11 @@ static void shoot_set_mode(void);
 static void shoot_feedback_update(void);
 static void shoot_clear_trigger_pid_state(void);
 
+static uint8_t fric_gear = 0;
+static const fp32 fric_speed_table[FRIC_GEAR_COUNT] = {
+    FRIC_SPEED_GEAR_0, FRIC_SPEED_GEAR_1
+};
+
 shoot_control_t shoot_control;
 
 /* 注意: 不再有 shoot_cmd_state / shoot_exec_state 静态变量 */
@@ -109,7 +114,8 @@ void shoot_init(void)
     shoot_control.trigger_ecd_last_fire = shoot_control.trigger_ecd_fdb;
 
     shoot_control.fric_speed_set = 0.0f;
-    shoot_control.fric_speed_base = FRIC_SPEED_LOW;
+    fric_gear = 0;
+    shoot_control.fric_speed_base = fric_speed_table[0];
     shoot_control.fric1_given_current = 0;
     shoot_control.fric2_given_current = 0;
 
@@ -182,7 +188,8 @@ int16_t shoot_control_loop(void)
         shoot_control.trigger_ecd_set = shoot_control.trigger_ecd_fdb;
         shoot_control.speed_set = 0.0f;
         shoot_control.given_current = 0;
-        shoot_control.fric_speed_base = FRIC_SPEED_LOW;
+        fric_gear = 0;
+        shoot_control.fric_speed_base = fric_speed_table[0];
         shoot_control.high_freq_flag = 0;
         shoot_control.burst_mode = 0;
     }
@@ -333,43 +340,41 @@ static void shoot_set_mode(void)
             shoot_control.high_freq_flag = !shoot_control.high_freq_flag;
         }
 
-        if (kb_cmd->fric_speed_adj == 1u)
+        /* 挡位切换：adj 1/3 升挡，adj 2/4 降挡 */
+        if (kb_cmd->fric_speed_adj == 1u || (kb_cmd->fric_speed_adj == 3u && shoot_control.arm_enable))
         {
-            shoot_control.fric_speed_base += FRIC_SPEED_ADJUST_STEP;
+            if (fric_gear < FRIC_GEAR_COUNT - 1)
+            {
+                fric_gear++;
+            }
         }
-        else if (kb_cmd->fric_speed_adj == 2u)
+        else if (kb_cmd->fric_speed_adj == 2u || (kb_cmd->fric_speed_adj == 4u && shoot_control.arm_enable))
         {
-            shoot_control.fric_speed_base -= FRIC_SPEED_ADJUST_STEP;
-        }
-        else if (kb_cmd->fric_speed_adj == 3u && shoot_control.arm_enable)
-        {
-            shoot_control.fric_speed_base += FRIC_SPEED_ADJUST_STEP;
-        }
-        else if (kb_cmd->fric_speed_adj == 4u && shoot_control.arm_enable)
-        {
-            shoot_control.fric_speed_base -= FRIC_SPEED_ADJUST_STEP;
+            if (fric_gear > 0)
+            {
+                fric_gear--;
+            }
         }
         else if (key_f && !shoot_control.last_key_f)
         {
             if (shoot_control.shoot_rc->key.v & SHOOT_FRIC_INC_KEYBOARD)
             {
-                shoot_control.fric_speed_base += FRIC_SPEED_ADJUST_STEP;
+                /* Shift+F: 升挡 */
+                if (fric_gear < FRIC_GEAR_COUNT - 1)
+                {
+                    fric_gear++;
+                }
             }
             else
             {
-                shoot_control.fric_speed_base -= FRIC_SPEED_ADJUST_STEP;
+                /* F alone: 降挡 */
+                if (fric_gear > 0)
+                {
+                    fric_gear--;
+                }
             }
         }
-
-        /* 硬限幅 fric_speed_base */
-        if (shoot_control.fric_speed_base < FRIC_SPEED_LOW)
-        {
-            shoot_control.fric_speed_base = FRIC_SPEED_LOW;
-        }
-        else if (shoot_control.fric_speed_base > FRIC_SPEED_HIGH)
-        {
-            shoot_control.fric_speed_base = FRIC_SPEED_HIGH;
-        }
+        shoot_control.fric_speed_base = fric_speed_table[fric_gear];
     }
 
     shoot_control.last_key_q = key_q;
