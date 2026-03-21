@@ -48,6 +48,10 @@
   - F 按下边沿 → `fric_gear = max(fric_gear - 1, 0)`（需排除 Shift 同时按下的情况）
 - `fric_speed_base = fric_speed_table[fric_gear]`
 - 删除旧的连续步进调速逻辑
+- 删除硬限幅段（shoot.c:364-372，引用已删除的 `FRIC_SPEED_LOW/HIGH`）
+- `keyboard_action.c` 的 `fric_speed_adj` 路径（shoot.c:336-351）也改为挡位切换：adj=1/3 → gear++，adj=2/4 → gear--
+- SHOOT_STOP 分支（shoot.c:185）复位 `fric_gear = 0`
+- 初始化（shoot.c:112）同步改为 `fric_speed_base = fric_speed_table[0]`
 
 ### 边沿检测要点
 
@@ -98,14 +102,16 @@ else
 
 - `referee.h:142` 定义了 `bullet_speed` 字段（float, m/s）
 - 当前无消费端，遥测未上报
-- 遥测当前 75 列（索引 0-74）
+- 遥测当前 69 列（索引 0-68）
+- 裁判数据通过全局变量 `shoot_data_t`（referee.c:27）访问
 
 ### 设计
 
-- 在 `usb_task.c` 遥测打包处，追加第 75 列（索引 75）
+- 在 `usb_task.c` 遥测 snprintf 末尾追加第 69 列（索引 69）
 - 列名：`bullet_spd`
-- 值：`bullet_speed × 100` 整数上报（centi-scaled，与功率控制列一致）
-- 需从裁判系统结构体获取指针（类似 `get_shoot_data()` 或直接引用全局结构体）
+- 值：`(int32_t)(shoot_data_t.bullet_speed * 100)` 整数上报（centi-scaled）
+- 需在 usb_task.c 中 extern 引用 `shoot_data_t`
+- 同步更新 MCP 遥测服务器的列名定义
 
 ## 文件改动清单
 
