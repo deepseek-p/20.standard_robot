@@ -40,7 +40,7 @@
 
 #ifndef CURRENT_UART_MODE
 // ===== 当前生效模式（改这里）=====
-#define CURRENT_UART_MODE UART_MODE_DEBUG_WIFI
+#define CURRENT_UART_MODE UART_MODE_COMPETITION
 // 例如切到比赛模式：
 // #define CURRENT_UART_MODE  UART_MODE_COMPETITION
 #endif

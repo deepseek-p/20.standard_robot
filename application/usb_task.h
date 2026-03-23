@@ -34,7 +34,7 @@
 #define TELEM_MODE_WIFI  2
 
 #ifndef TELEM_OUTPUT_MODE
-#define TELEM_OUTPUT_MODE  TELEM_MODE_WIFI /* <-- 改这里 */
+#define TELEM_OUTPUT_MODE  TELEM_MODE_USB /* <-- 改这里 */
 #endif
 
 #define USB_DEBUG_TASK_PERIOD_MS  5u

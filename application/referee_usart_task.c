@@ -222,7 +222,13 @@ void USART6_IRQHandler(void)
 #if USART1_VT03
 void USART1_IRQHandler(void)
 {
-    if ((USART1->SR & USART_SR_RXNE) != 0u)
+    uint32_t sr = USART1->SR;
+    if (sr & (USART_SR_ORE | USART_SR_NE | USART_SR_FE | USART_SR_PE))
+    {
+        (void)USART1->DR;
+        return;
+    }
+    if (sr & USART_SR_RXNE)
     {
         uint8_t byte = (uint8_t)(USART1->DR & 0xFFu);
         vt03_parse_byte(byte);

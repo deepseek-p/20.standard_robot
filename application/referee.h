@@ -135,10 +135,11 @@ typedef __packed struct //0x0206
     uint8_t hurt_type : 4;
 } ext_robot_hurt_t;
 
-typedef __packed struct //0x0207
+typedef __packed struct //0x0207 (2026 V1.2.0)
 {
     uint8_t bullet_type;
-    uint8_t bullet_freq;
+    uint8_t shooter_number;
+    uint8_t launching_frequency;
     float bullet_speed;
 } ext_shoot_data_t;
 typedef __packed struct

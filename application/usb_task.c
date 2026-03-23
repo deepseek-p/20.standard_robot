@@ -1026,7 +1026,7 @@ static void usb_cmd_replyf(const char *format, ...)
 
     {
         uint8_t retry;
-        for (retry = 0; retry < 50u; retry++)
+        for (retry = 0; retry < 3u; retry++)
         {
             if (CDC_Transmit_FS((uint8_t *)line, (uint16_t)len) == 0)
             {

@@ -66,10 +66,10 @@
 #define FRIC_PID_MAX_OUT            9900.0f
 #define FRIC_PID_MAX_IOUT           1500.0f
 
-//摩擦轮挡位（两挡，RPM 待标定）
+//摩擦轮挡位（两挡）
 #define FRIC_GEAR_COUNT             2
-#define FRIC_SPEED_GEAR_0           4900.0f   // ~20m/s，待标定
-#define FRIC_SPEED_GEAR_1           5800.0f   // ~24m/s，待标定
+#define FRIC_SPEED_GEAR_0           5980.0f   // ~19m/s
+#define FRIC_SPEED_GEAR_1           6580.0f   // ~23m/s (max<25)
 #define FRIC_READY_SPEED_ERR        200.0f
 #define FRIC_READY_MIN_SPEED        3000.0f
 
