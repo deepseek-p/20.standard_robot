@@ -46,6 +46,7 @@ static void shoot_feedback_update(void);
 static void shoot_clear_trigger_pid_state(void);
 
 static uint8_t fric_gear = 0;
+static bool_t shoot_reverse_success_pulse = 0;
 static const fp32 fric_speed_table[FRIC_GEAR_COUNT] = {
     FRIC_SPEED_GEAR_0, FRIC_SPEED_GEAR_1
 };
@@ -134,6 +135,7 @@ void shoot_init(void)
     shoot_control.continue_req = 0;
     shoot_control.reverse_req = 0;
     shoot_control.microswitch_on = 0;
+    shoot_reverse_success_pulse = 0;
 
     /* 注意: 不再调用 shoot_logic_init()，不再初始化 shoot_exec_state */
 }
@@ -482,6 +484,10 @@ static void shoot_set_mode(void)
                     shoot_control.bullet_fired_count++;
                     shoot_control.local_heat += HEAT_PER_BULLET;
                 }
+                else
+                {
+                    shoot_reverse_success_pulse = 1;
+                }
                 shoot_control.reverse_flag = 0;
                 shoot_control.shoot_mode = SHOOT_READY_BULLET;
             }
@@ -611,4 +617,21 @@ void shoot_get_fric_current(int16_t *fric1, int16_t *fric2)
     {
         *fric2 = shoot_control.fric2_given_current;
     }
+}
+
+shoot_ui_gear_e shoot_get_ui_gear(void)
+{
+    if (fric_gear == 0u)
+    {
+        return SHOOT_UI_GEAR_LOW;
+    }
+
+    return SHOOT_UI_GEAR_HIGH;
+}
+
+bool_t shoot_consume_reverse_success_pulse(void)
+{
+    bool_t pulse = shoot_reverse_success_pulse;
+    shoot_reverse_success_pulse = 0;
+    return pulse;
 }

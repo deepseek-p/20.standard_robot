@@ -118,6 +118,12 @@ typedef enum
     SHOOT_CONTINUE_BULLET,
 } shoot_mode_e;
 
+typedef enum
+{
+    SHOOT_UI_GEAR_LOW = 0,
+    SHOOT_UI_GEAR_HIGH = 1,
+} shoot_ui_gear_e;
+
 typedef struct
 {
     shoot_mode_e shoot_mode;
@@ -179,5 +185,7 @@ typedef struct
 extern void shoot_init(void);
 extern int16_t shoot_control_loop(void);
 extern void shoot_get_fric_current(int16_t *fric1, int16_t *fric2);
+extern shoot_ui_gear_e shoot_get_ui_gear(void);
+extern bool_t shoot_consume_reverse_success_pulse(void);
 
 #endif
