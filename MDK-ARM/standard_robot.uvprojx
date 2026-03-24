@@ -881,6 +881,11 @@
               <FilePath>..\application\referee_usart_task.c</FilePath>
             </File>
             <File>
+              <FileName>rm_ui.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\application\rm_ui.c</FilePath>
+            </File>
+            <File>
               <FileName>remote_control.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\application\remote_control.c</FilePath>

@@ -19,6 +19,7 @@
 #include "fifo.h"
 #include "protocol.h"
 #include "referee.h"
+#include "rm_ui.h"
 #include "wifi_bridge.h"
 #include "uart_mode.h"
 #if VT03_ENABLE
@@ -49,6 +50,7 @@ void referee_usart_task(void const *argument)
 
 #if USART6_REFEREE
     init_referee_struct_data();
+    rm_ui_init();
     fifo_s_init(&referee_fifo, referee_fifo_buf, REFEREE_FIFO_BUF_LENGTH);
     usart6_init(usart6_buf[0], usart6_buf[1], USART_RX_BUF_LENGHT);
 #else
@@ -61,6 +63,7 @@ void referee_usart_task(void const *argument)
     {
 #if USART6_REFEREE
         referee_unpack_fifo_data();
+        rm_ui_update();
 #endif
         osDelay(10);
     }
