@@ -87,3 +87,6 @@
 - Trigger: field count growth or large integer values with small tx buffer.
 - Mitigation: increase frame buffer to `1024` and drop oversized frames instead of sending truncation.
 - Status: Mitigated in code, pending VOFA+ long-run verification.
+
+| 2026-03-24 | `application/rm_ui.c` / `application/referee_usart_task.c` | 裁判客户端 UI 发送走 `USART6` 阻塞 TX；若实机上裁判链路拥塞、包长偏大或发送窗口与接收高峰重叠，可能拖长 `REFEREE` 任务单次循环时间 | 裁判系统在线、UI 初次重建或闪烁期连续发包 | 裁判数据新鲜度、UI 刷新稳定性 | M | UI 模块内部已限频到 `100ms`，且每个周期最多发送一个包；初始化重建拆成 delete/reticle/mode/gear 分步发送 | Open | 1) 板端长跑观察 `REFEREE_TOE` 是否误离线；2) 观察 UI 初次上线和退弹闪烁时是否丢图或卡顿；3) 如有问题，改为 DMA TX 或进一步拉大发送间隔 | @Codex |
+| 2026-03-24 | `application/chassis_power_control.c/h` | 功率预测模型已移植，但当前常数仍沿用参考实现经验值；若本车动力学与参考条件差异较大，可能出现限流过早或过晚 | 急加减速、撞墙、满电缓冲区快速消耗等高动态底盘工况 | 底盘动力边界、功率保护一致性 | H | 已保留裁判 buffer 低阈值保护和离线 fallback 电流限幅，避免完全失控；后续需基于实测功率曲线再标定系数 | Open | 1) 板端记录裁判功率、buffer 和四轮给定电流；2) 对比超限前后加速响应；3) 必要时回调 `MOTOR_*_COEFF` 与 buffer 降额阈值 | @Codex |

@@ -266,6 +266,25 @@
 
 ## 2026-03-07 Supplement: Shoot Core Replacement (HUST)
 
+## 2026-03-24 Supplement: Power Limit + Referee UI Module Map
+
+- `application/rm_ui.c/h`
+  - 新增裁判客户端 UI 发送模块。
+  - 关键接口：
+    - `rm_ui_init()`
+    - `rm_ui_update()`
+- `application/referee_usart_task.c`
+  - 现同时承担裁判客户端 UI 的发送调度入口。
+- `application/chassis_power_control.c/h`
+  - 改为模型功率估算限流。
+  - 仍仅依赖裁判 `power/buffer` 读数，不含 supercap。
+- `application/shoot.c/h`
+  - 新增 UI 只读导出：
+    - `shoot_get_ui_gear()`
+    - `shoot_consume_reverse_success_pulse()`
+- `MDK-ARM/standard_robot.uvprojx`
+  - application 组新增 `rm_ui.c` 文件项。
+
 - `application/shoot.h`:
   - 枚举收敛为 5 态：`STOP/READY_FRIC/READY_BULLET/BULLET/CONTINUE_BULLET`
   - 拨弹速度环参数切换到 HUST rpm 参数组（`TRIGGER_SPD_KP=6.2, KI=3.2`）

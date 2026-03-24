@@ -121,6 +121,18 @@
 
 ## 2026-03-07 Supplement: Shoot Core Replacement (HUST)
 
+## 2026-03-24 Supplement: REFEREE Task Adds Client UI Refresh
+
+- `REFEREE` task (`referee_usart_task`)
+  - 任务优先级、栈大小、周期均不变。
+  - 保留原有 `USART6 DMA -> FIFO -> unpack -> referee.c` 接收链。
+  - 新增 `rm_ui_update()` 低频 UI 刷新。
+- 调度影响
+  - 无新任务、无优先级调整、无周期调整。
+  - `rm_ui.c` 内部限频 `100ms`，每次最多发送一个 UI 包。
+- 风险
+  - 目前 UI 发送为阻塞 `HAL_UART_Transmit`，需板端确认对裁判接收时序无明显副作用。
+
 - `gimbalTask` 内的 `shoot_control_loop` 控制语义更新：
   - `SHOOT_READY_BULLET`：持续位置 hold（串级 PID）
   - `SHOOT_BULLET`：单发一步一格（串级 PID）

@@ -208,6 +208,22 @@
 
 ## 2026-03-07 Supplement: Shoot HUST Control Core Replacement
 
+## 2026-03-24 Supplement: Chassis Model Power Limit + Referee Client UI
+
+- `application/chassis_power_control.c/h`
+  - 底盘限流从“按总电流缩放”升级为“功率预测模型 + 电流反解”。
+  - 当前实现只保留裁判链路相关部分：读取 `chassis_power/chassis_power_buffer`，不包含超级电容分支。
+- `application/referee_usart_task.c`
+  - `REFEREE` 任务仍保持原有 DMA 接收、FIFO 解包职责。
+  - 新增 `rm_ui_init()` / `rm_ui_update()` 调用点，把客户端 UI 发送挂到现有裁判任务上。
+- `application/rm_ui.c/h`
+  - 新增裁判客户端 UI 模块，负责 `0x0301` 组帧、CRC、图元初始化重建和低频刷新。
+  - UI 内容包括固定准心、`FOLLOW/SPIN`、`LOW/HIGH`、退弹成功绿灯闪烁。
+- 运行时边界
+  - 不新建任务。
+  - 不改 `usb_task`。
+  - 发送仍走 `USART6`，接收主链仍由 `referee_unpack_fifo_data()` 维护。
+
 - `shoot` 内核由“外置 `shoot_logic` 命令/执行层”切换为 `shoot.c` 内联 HUST 风格控制流：
   - 单发：位置环 -> 速度环串级（一步一格）
   - 连发：跳过位置环，速度环直接驱动（`3500/4500 rpm`）

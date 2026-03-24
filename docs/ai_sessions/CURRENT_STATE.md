@@ -255,3 +255,19 @@
     3. `FRIC_SPEED_HIGH` 8000→7400（限 25m/s 弹速）
   - 累计发射 137 发（空载+实弹），无异常
   - 详见 `docs/ai_sessions/2026-03-07_shoot_hust_validation_and_fixes.md`
+
+## 2026-03-24 Supplement: Power Limit + Referee Client UI
+
+- 同步日期：`2026-03-24`
+- `application/chassis_power_control.c/h`
+  - 已切到“功率预测模型 + 电流反解”限流。
+  - 当前范围不包含超级电容。
+- `application/rm_ui.c/h`
+  - 新增裁判客户端 UI 发送模块。
+  - 已实现固定准心、`FOLLOW/SPIN`、`LOW/HIGH`、退弹成功绿灯闪烁。
+- `application/referee_usart_task.c`
+  - `REFEREE` 任务现负责 UI 刷新调度，但未改变任务周期和优先级。
+- 当前状态
+  - 代码完成：`In Progress`
+  - 主机验证：`rm_ui.c` 已做 `gcc -fsyntax-only` 语法检查通过。
+  - 板端验证：`Pending`
