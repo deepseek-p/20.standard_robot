@@ -142,3 +142,10 @@
 - 调度影响：
   - 无任务创建/优先级/周期变更
   - 无新增阻塞路径
+
+## 2026-03-26 Supplement: USBTask NONE Mode Scheduling
+
+- `USBTask` (`usb_task`) now has compile-time split behavior:
+  - `TELEM_MODE_NONE`: task suspends itself immediately and no longer consumes periodic scheduler slices.
+  - `TELEM_MODE_USB/WIFI`: keeps original init and loop cadence (`USB_DEBUG_TASK_PERIOD_MS=5`, frame period `20ms`).
+- In NONE mode, USB/WiFi command polling paths are not entered.

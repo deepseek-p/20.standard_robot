@@ -59,7 +59,7 @@
 #define RM_UI_REVERSE_BLINK_PERIOD_MS  100u
 
 #define RM_UI_SEND_INTERVAL_MS         100u
-#define RM_UI_TX_TIMEOUT_MS            20u
+#define RM_UI_FRAME_MAX_LEN            REF_PROTOCOL_FRAME_MAX_SIZE
 #define RM_UI_TEXT_MAX_LEN             30u
 #define RM_UI_SPIN_WZ_THRESHOLD        1.0f
 
@@ -142,6 +142,10 @@ RM_UI_STATIC_ASSERT(rm_ui_string_size_check, sizeof(rm_ui_string_t) == 45);
 
 static rm_ui_state_t rm_ui_state;
 static uint8_t rm_ui_seq = 0u;
+static uint8_t tx_buf[RM_UI_FRAME_MAX_LEN];
+
+extern DMA_HandleTypeDef hdma_usart6_tx;
+extern void usart6_tx_dma_enable(uint8_t *data, uint16_t len);
 
 static uint16_t rm_ui_get_receiver_id(uint16_t sender_id);
 static uint8_t rm_ui_ready_to_send(uint16_t *sender_id, uint16_t *receiver_id);
@@ -479,10 +483,18 @@ static uint8_t rm_ui_send_interactive(uint16_t data_cmd_id, const void *data, ui
     memcpy(frame + index, data, data_len);
     append_CRC16_check_sum(frame, total_len);
 
-    if (HAL_UART_Transmit(&huart6, frame, total_len, RM_UI_TX_TIMEOUT_MS) != HAL_OK)
+    if (hdma_usart6_tx.Instance == NULL)
     {
         return 0u;
     }
+
+    if ((hdma_usart6_tx.Instance->CR & DMA_SxCR_EN) != 0u)
+    {
+        return 0u;
+    }
+
+    memcpy(tx_buf, frame, total_len);
+    usart6_tx_dma_enable(tx_buf, total_len);
 
     return 1u;
 }

@@ -261,6 +261,9 @@
 - 同步日期：`2026-03-24`
 - `application/chassis_power_control.c/h`
   - 已切到“功率预测模型 + 电流反解”限流。
+  - 2026-03-24 v2：按 `main` 对齐为 `120W` 上限 + `50J` buffer PID 目标 + `20J` 应急线性降额；仍不含 `supercap`。
+  - 2026-03-24 v3：模型系数改为 `2.16e-6 / 2.09e-7 / 1.83e-7 / 2.21`，以用户确认值覆盖本地旧 `main` 参数。
+  - 2026-03-25 v4：新增内部观测量 `power_est/effective_limit`，并补 `target_power < 0` 防御；尚未接到 USB 遥测输出。
   - 当前范围不包含超级电容。
 - `application/rm_ui.c/h`
   - 新增裁判客户端 UI 发送模块。
@@ -271,3 +274,22 @@
   - 代码完成：`In Progress`
   - 主机验证：`rm_ui.c` 已做 `gcc -fsyntax-only` 语法检查通过。
   - 板端验证：`Pending`
+## 2026-03-26 增量更新
+
+### Referee UI DMA 发送
+- 状态：In Progress
+- 最新文档：`2026-03-26_rm_ui_dma_tx.md`
+- 当前方案：`application/rm_ui.c` 已将 UI 帧发送从阻塞 `HAL_UART_Transmit` 改为 `USART6 TX DMA`；DMA 忙时跳过本帧，下一周期重试。
+- 已完成：移除 `rm_ui_send_interactive()` 阻塞发送路径，增加静态 DMA 源缓冲，避免栈上 `frame` 在 DMA 发送期间失效。
+- 待办：Keil 整工程编译；板端验证 `REFEREE_TOE` 掉线率、UI 刷新与断线重连。
+
+## 2026-03-26 Supplement: USBTask `TELEM_MODE_NONE` 零开销
+
+- 状态：In Progress（代码已改，待 Keil + 板端验收）
+- 最新文档：`2026-03-26_usb_task_telem_none_zero_overhead.md`
+- 当前语义：
+  - `TELEM_MODE_NONE`：`usb_task` 入口立即 `vTaskSuspend(NULL)`，不初始化 USB/WiFi，不轮询命令。
+  - `TELEM_MODE_USB/WIFI`：保持原有初始化与循环节拍不变。
+- 待办：
+  - Keil 三模式编译（0/1/2）零 warning/zero error。
+  - NONE 模式 `.map` 核对 `usb_buf` 等静态符号已裁剪。

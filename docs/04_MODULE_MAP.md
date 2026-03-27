@@ -295,3 +295,12 @@
   - 速度滤波输入从 `speed_rpm * MOTOR_RPM_TO_SPEED` 改为 `speed_rpm`
 - `MDK-ARM/standard_robot.uvprojx`:
   - 删除 `shoot_logic.c` 文件项（工程不再编译该模块）
+
+## 2026-03-26 Supplement: `usb_task` NONE-Mode Interface and Ownership
+
+- `application/usb_task.c`
+  - `usb_task()` remains always available for task creation compatibility.
+  - Telemetry internals (`usb_buf`, parser helpers, PID command parser, channel-mask functions) are now built only when `TELEM_OUTPUT_MODE != TELEM_MODE_NONE`.
+- `application/usb_task.h`
+  - `usb_debug_set_channel_mask()` / `usb_debug_get_channel_mask()` declarations are now exported only in non-NONE modes.
+  - `TELEM_MODE_NONE` semantics updated to “telemetry + command disabled, task permanently suspended”.

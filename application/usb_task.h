@@ -24,7 +24,7 @@
  * ============================================================
  *  遥测输出模式选择（三选一，改下面这一行即可）
  *
- *  TELEM_MODE_NONE (0) — 关闭遥测输出，不发帧，命令通道仍可用
+ *  TELEM_MODE_NONE (0) — 关闭遥测+命令，任务永久挂起，零开销
  *  TELEM_MODE_USB  (1) — 遥测帧只走 USB CDC（插线调参）
  *  TELEM_MODE_WIFI (2) — 遥测帧只走 UART1 WiFi（无线调参）
  * ============================================================
@@ -34,7 +34,7 @@
 #define TELEM_MODE_WIFI  2
 
 #ifndef TELEM_OUTPUT_MODE
-#define TELEM_OUTPUT_MODE  TELEM_MODE_USB /* <-- 改这里 */
+#define TELEM_OUTPUT_MODE  TELEM_MODE_NONE /* <-- 改这里 */
 #endif
 
 #define USB_DEBUG_TASK_PERIOD_MS  5u
@@ -54,7 +54,9 @@ typedef enum
 #define USB_DEBUG_CHANNEL_MASK_ALL     (USB_DBG_CH_HEALTH | USB_DBG_CH_GIMBAL | USB_DBG_CH_CHASSIS | USB_DBG_CH_RC | USB_DBG_CH_EVENT | USB_DBG_CH_SHOOT)
 
 extern void usb_task(void const *argument);
+#if (TELEM_OUTPUT_MODE != TELEM_MODE_NONE)
 extern void usb_debug_set_channel_mask(uint16_t channel_mask);
 extern uint16_t usb_debug_get_channel_mask(void);
+#endif
 
 #endif

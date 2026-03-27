@@ -161,6 +161,7 @@ typedef struct
   chassis_motor_t motor_chassis[4];          //chassis motor data.���̵������
   pid_type_def motor_speed_pid[4];             //motor speed PID.���̵���ٶ�pid
   pid_type_def chassis_angle_pid;              //follow angle PID.���̸���Ƕ�pid
+  pid_type_def buffer_pid;                     //buffer energy PID for power control
 
   first_order_filter_type_t chassis_cmd_slow_set_vx;  //use first order filter to slow set-point.ʹ��һ�׵�ͨ�˲������趨ֵ
   first_order_filter_type_t chassis_cmd_slow_set_vy;  //use first order filter to slow set-point.ʹ��һ�׵�ͨ�˲������趨ֵ
@@ -183,6 +184,8 @@ typedef struct
   fp32 chassis_pitch; //the pitch angle calculated by gyro sensor and gimbal motor.�����Ǻ���̨������ӵ�pitch�Ƕ�
   fp32 chassis_roll;  //the roll angle calculated by gyro sensor and gimbal motor.�����Ǻ���̨������ӵ�roll�Ƕ�
 
+  fp32 power_est;        // model predicted total power (W)
+  fp32 effective_limit;  // effective power limit after buffer PID (W)
 } chassis_move_t;
 
 typedef struct

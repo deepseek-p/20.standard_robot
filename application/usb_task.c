@@ -135,6 +135,7 @@ extern ext_shoot_data_t shoot_data_t;
  * N  :pitch_gyro_set-> pitch gyro speed setpoint (milli-scale)
  */
 
+#if (TELEM_OUTPUT_MODE != TELEM_MODE_NONE)
 static uint8_t usb_buf[USB_DEBUG_FRAME_MAX_LEN];
 static const error_t *error_list_usb_local;
 
@@ -220,12 +221,19 @@ uint16_t usb_debug_get_channel_mask(void)
 {
     return usb_debug_channel_mask;
 }
+#endif
 
 void usb_task(void const *argument)
 {
-    uint32_t last_frame_ms = 0;
-
     (void)argument;
+#if (TELEM_OUTPUT_MODE == TELEM_MODE_NONE)
+    vTaskSuspend(NULL);
+    for (;;)
+    {
+        osDelay(osWaitForever);
+    }
+#else
+    uint32_t last_frame_ms = 0;
 #if WIFI_BRIDGE_ENABLE
     (void)usb_debug_drop_cnt;
 #endif
@@ -240,13 +248,11 @@ void usb_task(void const *argument)
     {
         uint32_t now_ms = usb_debug_now_ms();
 
-#if (TELEM_OUTPUT_MODE != TELEM_MODE_NONE)
         if (now_ms - last_frame_ms >= USB_DEBUG_FRAME_PERIOD_MS)
         {
             usb_emit_firewater_frame(now_ms);
             last_frame_ms = now_ms;
         }
-#endif
         usb_cmd_process();
 #if WIFI_BRIDGE_ENABLE
         wifi_cmd_process();
@@ -254,8 +260,10 @@ void usb_task(void const *argument)
 
         osDelay(USB_DEBUG_TASK_PERIOD_MS);
     }
+#endif
 }
 
+#if (TELEM_OUTPUT_MODE != TELEM_MODE_NONE)
 static void usb_cmd_process(void)
 {
     static char cmd_line[USB_CMD_LINE_MAX_LEN];
@@ -1139,7 +1147,6 @@ static bool_t usb_emit_firewater_frame(uint32_t now_ms)
     uint8_t chassis_ok;
     uint8_t vt03_online;
     int16_t vt03_dial_ch;
-
     gimbal_debug_snapshot_t gimbal_snapshot;
     chassis_debug_snapshot_t chassis_snapshot;
     const RC_ctrl_t *rc_ctrl;
@@ -1396,3 +1403,4 @@ static bool_t usb_emit_firewater_frame(uint32_t now_ms)
     return 0;
 #endif
 }
+#endif

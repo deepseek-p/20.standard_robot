@@ -90,3 +90,19 @@
 
 | 2026-03-24 | `application/rm_ui.c` / `application/referee_usart_task.c` | 裁判客户端 UI 发送走 `USART6` 阻塞 TX；若实机上裁判链路拥塞、包长偏大或发送窗口与接收高峰重叠，可能拖长 `REFEREE` 任务单次循环时间 | 裁判系统在线、UI 初次重建或闪烁期连续发包 | 裁判数据新鲜度、UI 刷新稳定性 | M | UI 模块内部已限频到 `100ms`，且每个周期最多发送一个包；初始化重建拆成 delete/reticle/mode/gear 分步发送 | Open | 1) 板端长跑观察 `REFEREE_TOE` 是否误离线；2) 观察 UI 初次上线和退弹闪烁时是否丢图或卡顿；3) 如有问题，改为 DMA TX 或进一步拉大发送间隔 | @Codex |
 | 2026-03-24 | `application/chassis_power_control.c/h` | 功率预测模型已移植，但当前常数仍沿用参考实现经验值；若本车动力学与参考条件差异较大，可能出现限流过早或过晚 | 急加减速、撞墙、满电缓冲区快速消耗等高动态底盘工况 | 底盘动力边界、功率保护一致性 | H | 已保留裁判 buffer 低阈值保护和离线 fallback 电流限幅，避免完全失控；后续需基于实测功率曲线再标定系数 | Open | 1) 板端记录裁判功率、buffer 和四轮给定电流；2) 对比超限前后加速响应；3) 必要时回调 `MOTOR_*_COEFF` 与 buffer 降额阈值 | @Codex |
+| 2026-03-24 | `application/chassis_power_control.c/h` / `application/chassis_task.c/h` / `application/referee.c/h` | 功率限制策略已从临时 `100W` 改为按 `main` 对齐的 `120W + buffer PID + 20J emergency scale`；若本车实际裁判配置、底盘惯量或轮胎抓地与参考分支差异较大，可能出现 buffer 守得过松或过紧 | 快速起停、连续横移、自旋叠加平移、buffer 接近 20J 的比赛工况 | 20J 红线保护、底盘动力手感、功率介入时机 | H | 当前采用 `50J` 目标 buffer、`20W` 最小有效功率、`20J` 以下线性应急缩放，策略与 `main` 一致但未引入 `supercap`；后续需以实测裁判数据复核 PID 强度与介入点 | Open | 1) 板端记录 `chassis_power/chassis_power_buffer` 与四轮输出；2) 确认 `buffer` 不跌穿 `20J`；3) 若介入过早/过晚，优先回调 `buffer_pid` 参数而不是再改硬阈值 | @Codex |
+| 2026-03-26 | `application/rm_ui.c` | 裁判 UI 发送已从阻塞 `HAL_UART_Transmit` 改为 `USART6 TX DMA`；若 DMA 忙时连续跳帧过多，可能表现为 UI 刷新偶发延后，但应显著降低 `REFEREE` 任务被阻塞的风险 | 裁判系统在线、UI 初次重建、模式快速切换或退弹闪烁期间连续发包 | 裁判链路稳定性、UI 刷新及时性 | M | 本轮改为：发送前检查 `hdma_usart6_tx` 是否空闲，忙则直接跳过；空闲时复制到静态 `tx_buf` 后启动 DMA，避免覆盖在传 buffer | In Progress | 1) Keil 整工程编译；2) 板端观察 `REFEREE_TOE` 误离线率是否下降；3) 验证 UI 初始化、模式切换、挡位切换、退弹闪烁、断线重连 | @Codex |
+
+## 2026-03-26 Supplement Risk Entry
+
+- Module: `application/usb_task.c/h`
+- Risk: `TELEM_MODE_NONE` path now hard-disables telemetry+command and suspends task; if field process still expects USB command injection in NONE mode, it will appear as "link alive but no response".
+- Trigger: build configured with `TELEM_OUTPUT_MODE=TELEM_MODE_NONE` and operator still uses USB/WiFi runtime tuning commands.
+- Impact: debug operability and online tuning availability.
+- Mitigation: semantics clarified in header/docs; non-NONE modes unchanged; keep default `TELEM_OUTPUT_MODE=TELEM_MODE_USB`.
+- Status: In Progress
+- Verification plan:
+  - Keil compile for `TELEM_OUTPUT_MODE=0/1/2` with zero warning/zero error.
+  - Verify `.map` under NONE mode does not include `usb_buf` and related telemetry statics.
+  - Board test to confirm USB task no longer consumes runtime slices in NONE mode.
+- Owner: @Codex

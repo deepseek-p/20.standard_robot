@@ -255,6 +255,11 @@ static void chassis_init(chassis_move_t *chassis_move_init)
     //chassis angle PID
     //���̽Ƕ�pidֵ
     const static fp32 chassis_yaw_pid[3] = {CHASSIS_FOLLOW_GIMBAL_PID_KP, CHASSIS_FOLLOW_GIMBAL_PID_KI, CHASSIS_FOLLOW_GIMBAL_PID_KD};
+#if POWER_LIMIT_AGGRESSIVE
+    const static fp32 buffer_energy_pid[3] = {3.0f, 0.15f, 0.0f};
+#else
+    const static fp32 buffer_energy_pid[3] = {2.0f, 0.1f, 0.0f};
+#endif
     
     const static fp32 chassis_x_order_filter[1] = {CHASSIS_ACCEL_X_NUM};
     const static fp32 chassis_y_order_filter[1] = {CHASSIS_ACCEL_Y_NUM};
@@ -284,6 +289,11 @@ static void chassis_init(chassis_move_t *chassis_move_init)
     //initialize angle PID
     //��ʼ���Ƕ�PID
     PID_init(&chassis_move_init->chassis_angle_pid, PID_POSITION, chassis_yaw_pid, CHASSIS_FOLLOW_GIMBAL_PID_MAX_OUT, CHASSIS_FOLLOW_GIMBAL_PID_MAX_IOUT);
+#if POWER_LIMIT_AGGRESSIVE
+    PID_init(&chassis_move_init->buffer_pid, PID_POSITION, buffer_energy_pid, 50.0f, 25.0f);
+#else
+    PID_init(&chassis_move_init->buffer_pid, PID_POSITION, buffer_energy_pid, 40.0f, 20.0f);
+#endif
     
     //first order low-pass filter  replace ramp function
     //��һ���˲�����б����������

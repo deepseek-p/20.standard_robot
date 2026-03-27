@@ -234,3 +234,12 @@
 - 架构边界不变：
   - 仍在 `gimbal_task` 1ms 路径内执行
   - 不新增任务、不新增阻塞调用、不改 CAN 发送节拍
+
+## 2026-03-26 Supplement: TELEM_MODE_NONE Zero-Overhead USBTask
+
+- `application/usb_task.c`
+  - `TELEM_OUTPUT_MODE == TELEM_MODE_NONE` now enters `vTaskSuspend(NULL)` at task entry.
+  - USB task no longer initializes USB CDC or WiFi UART in NONE mode.
+  - Telemetry/command static resources and static function implementations are compiled out in NONE mode.
+- Non-NONE behavior remains unchanged:
+  - frame emission period (`20ms`) and task period (`5ms`) stay the same.

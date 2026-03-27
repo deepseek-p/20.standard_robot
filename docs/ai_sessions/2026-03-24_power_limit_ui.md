@@ -112,3 +112,108 @@
 - 风险日志：`docs/risk_log.md`
 - 官方协议参考：
   - `RoboMaster 裁判系统串口协议附录 V1.5（2023-07-07）`
+
+## v2: 功率上限按 main 策略回调到 120W
+
+### 改动摘要
+
+- `application/chassis_power_control.c/h`
+  - 去掉此前固定 `100W` 和“裁判离线时总电流硬限幅”的临时策略。
+  - 改为读取 `get_chassis_power_limit()`，当前按 `main` 返回 `120W`。
+  - 有效功率上限改为：
+    `effective_limit = power_limit - PID(buffer, 50J setpoint)`，
+    并夹紧到 `[20W, 120W]`。
+  - 保留功率模型估算 + 二次方程反解电流。
+  - 当 `buffer < 20J` 时，不直接清零，改为按 `buffer / 20` 线性缩放四轮输出。
+- `application/chassis_task.c/h`
+  - 新增 `buffer_pid` 状态。
+  - 在 `chassis_init()` 中按 `main` 参数初始化：
+    `Kp=2.0, Ki=0.1, Kd=0.0, max_out=40, max_iout=20`。
+- `application/referee.c/h`
+  - 新增 `get_chassis_power_limit()`，当前返回 `120u`。
+
+### 关键决策与理由
+
+- 本轮向 `main` 对齐的是“120W 上限 + buffer PID 保 buffer + 20J 红线保护”这套策略，不再保留我前一版 `100W` 的保守上限。
+- 仍然不移植 `supercap` 分支，因为本分支范围被限定为“功率预测模型 + 功率限制”本体。
+- `buffer < 20J` 采用线性缩放而不是直接断底盘，原因是 `main` 也是用应急降额而不是硬清零；这样更接近比赛实际控制手感，同时仍守住 20J 红线。
+
+## ⚠ 未验证假设
+
+- 假设内容：
+  - 当前分支直接返回 `120W` 与本车当前组别/裁判配置一致。
+  - `main` 中的 `buffer_pid` 参数 `{2.0, 0.1, 0.0}` 迁移到本车后不会导致限功率介入过早或过晚。
+- 当前无法验证原因：
+  - 本次仅完成代码级对齐，尚未做 Keil 全工程编译和板端带裁判系统实测。
+- 潜在影响：
+  - 若实际裁判功率配置不是 `120W`，会导致限功率点偏差。
+  - 若 buffer PID 过强，可能在 `50J` 附近提前压动力；过弱则可能守不住 `20J` 红线。
+- 后续验证计划：
+  - 板端记录 `chassis_power / chassis_power_buffer / wheel current`，覆盖急加速、撞停、连续机动三种工况。
+  - 观察 `buffer` 是否稳定守在 `20J` 以上，以及 `effective_limit` 介入时机是否符合预期。
+
+## v3: 功率模型系数按用户确认值覆盖
+
+### 改动摘要
+
+- `application/chassis_power_control.h`
+  - 功率预测模型参数改为：
+    - `MOTOR_TORQUE_COEFF = 2.16e-6f`
+    - `MOTOR_K2 = 2.09e-7f`
+    - `MOTOR_A_COEFF = 1.83e-7f`
+    - `MOTOR_CONST_TERM = 2.21f`
+
+### 关键决策与理由
+
+- 我检查了当前工作区可见的本地 `main`，其中仍是旧系数；这说明本地 `main` 与你所说的“最新 main”不一致。
+- 本轮以你提供的 4 个参数为准覆盖当前分支，因为这比本地旧分支值更符合你的目标来源。
+
+## ⚠ 未验证假设
+
+- 假设内容：
+  - 你提供的 4 个模型参数对应的就是目标 `main` 最新版本，而不是另一条实验分支。
+- 当前无法验证原因：
+  - 当前仓库本地 `main` 并未包含这组新参数，缺少可直接对照的本地提交证据。
+- 潜在影响：
+  - 若该组参数来源不是最终目标分支，预测功率会与主线期望不一致。
+- 后续验证计划：
+  - 板端对比新旧参数下的 `power/buffer/current` 轨迹，确认这组系数的介入点和动力手感。
+
+## v4: 补遥测字段与 back-solve 防御
+
+### 改动摘要
+
+- `application/chassis_task.h`
+  - 在 `chassis_move_t` 末尾新增：
+    - `power_est`
+    - `effective_limit`
+- `application/chassis_power_control.c`
+  - 在限功率判定前写入：
+    - `chassis_power_control->power_est = total_power;`
+    - `chassis_power_control->effective_limit = effective_limit;`
+  - 在 quadratic back-solve 循环中补上：
+    - `if (target_power < 0.0f) continue;`
+- `application/chassis_power_control.h`
+  - 宏名对齐 `main`：
+    - `MOTOR_A_COEFF -> MOTOR_A`
+    - `MOTOR_CONST_TERM -> MOTOR_CONSTANT`
+  - 系数值保持不变：
+    - `2.16e-6 / 2.09e-7 / 1.83e-7 / 2.21`
+
+### 关键决策与理由
+
+- 本轮只做你指定的 3 件事，不调整 PID、不动 buffer 阈值、不引入 `supercap`。
+- `power_est/effective_limit` 放进 `chassis_move_t`，是为了直接复用现有底盘调试快照对象，后续加 USB 遥测最省改动面。
+- `target_power < 0` 的防御按 `main` 补齐，避免在极端比例缩放下把不该反解的目标功率继续送进二次方程。
+
+## ⚠ 未验证假设
+
+- 假设内容：
+  - 现有 USB/调试链路后续会消费 `chassis_move_t.power_est` 与 `effective_limit`，且不会因为结构体扩展引入额外兼容问题。
+- 当前无法验证原因：
+  - 本轮只做了结构和限流路径补丁，没有把两个新字段真正接到 USB 输出，也没有做板端采样。
+- 潜在影响：
+  - 字段虽已写入，但如果后续遥测侧没有读取，就只能停留在内部观测量。
+  - 若二次方程极端工况此前依赖负值穿透逻辑，本轮行为会更保守。
+- 后续验证计划：
+  - 下一轮把 `power_est/effective_limit` 接到 USB 遥测，并在急加速和低 buffer 场景下看曲线是否连续、是否与限功率介入点一致。

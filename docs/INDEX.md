@@ -69,6 +69,8 @@
 - [ai_sessions/2026-03-06_shoot_state_machine_align_hust.md](ai_sessions/2026-03-06_shoot_state_machine_align_hust.md)：Shoot 状态机按 HUST 结构对齐（持续级联持仓 + DONE 兼容态）
 - [ai_sessions/2026-03-07_shoot_hust_core_replacement.md](ai_sessions/2026-03-07_shoot_hust_core_replacement.md)：Shoot 控制核心替换为 HUST_Infantry_2023 方案（rpm 级联 + 连发直驱 + 简化反转）
 - [ai_sessions/2026-03-24_power_limit_ui.md](ai_sessions/2026-03-24_power_limit_ui.md)：功率预测限流移植 + 裁判客户端 UI 落地记录
+- [ai_sessions/2026-03-26_rm_ui_dma_tx.md](ai_sessions/2026-03-26_rm_ui_dma_tx.md)：裁判 UI 发送改为 USART6 TX DMA，消除 `REFEREE` 任务内阻塞串口发送
+- [ai_sessions/2026-03-26_usb_task_telem_none_zero_overhead.md](ai_sessions/2026-03-26_usb_task_telem_none_zero_overhead.md)：TELEM_MODE_NONE 下 USBTask 零 CPU 开销化（任务挂起 + 资源裁剪）
 - [plans/2026-03-06-shoot-hust-trigger-refactor-design.md](plans/2026-03-06-shoot-hust-trigger-refactor-design.md)：Shoot 发射控制按 HUST 风格重构的设计文档（上层命令生成 + 下层拨盘执行）
 - [plans/2026-03-06-shoot-hust-trigger-refactor-implementation.md](plans/2026-03-06-shoot-hust-trigger-refactor-implementation.md)：Shoot 发射控制按 HUST 风格重构的实施计划与板端验收步骤
 - [plans/2026-03-07-shoot-hust-core-replacement-impl.md](plans/2026-03-07-shoot-hust-core-replacement-impl.md)：Shoot HUST 控制核心替换实施计划（Codex 执行版）
