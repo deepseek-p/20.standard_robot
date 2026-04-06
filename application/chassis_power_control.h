@@ -31,7 +31,7 @@
  * - 不要同时在多个地方切模式，避免编出来的固件和预期不一致。
  */
 #ifndef POWER_LIMIT_AGGRESSIVE
-#define POWER_LIMIT_AGGRESSIVE          1   /* 0=V1 conservative, 1=V2 aggressive */
+#define POWER_LIMIT_AGGRESSIVE          0   /* 0=V1 conservative, 1=V2 aggressive */
 #endif
 
 #if POWER_LIMIT_AGGRESSIVE

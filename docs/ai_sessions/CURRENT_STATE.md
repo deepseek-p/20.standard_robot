@@ -1,6 +1,6 @@
 # CURRENT_STATE（收纳页）
 
-同步日期：`2026-03-13`
+同步日期：`2026-04-06`
 
 ## 当前生效控制语义（以代码为准）
 
@@ -293,3 +293,16 @@
 - 待办：
   - Keil 三模式编译（0/1/2）零 warning/zero error。
   - NONE 模式 `.map` 核对 `usb_buf` 等静态符号已裁剪。
+  - 板测试确认 USB 任务不再消耗运行时 slices。
+
+## 2026-04-06 Supplement: Power Limit Default Conservative
+
+- 状态：`In Progress`
+- 最新文档：`2026-04-06_chassis_power_limit_default_conservative.md`
+- 当前语义：
+  - `application/chassis_power_control.h` 中 `POWER_LIMIT_AGGRESSIVE` 默认值已从 `1` 切回 `0`
+  - 未在 Keil 工程中显式定义该宏时，默认构建将使用 `BUFFER_ENERGY_SETPOINT=50.0f`
+  - `application/chassis_task.c` 同步走保守版 `buffer_pid` 参数：`{2.0, 0.1, 0.0}`，`max_out/max_iout = 40/20`
+- 待办：
+  - 板端做 conservative/aggressive A/B 对比，确认默认发布配置
+  - 若继续使用 aggressive，改为在 Keil 工程中显式配置 `POWER_LIMIT_AGGRESSIVE=1`

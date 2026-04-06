@@ -71,6 +71,7 @@
 - [ai_sessions/2026-03-24_power_limit_ui.md](ai_sessions/2026-03-24_power_limit_ui.md)：功率预测限流移植 + 裁判客户端 UI 落地记录
 - [ai_sessions/2026-03-26_rm_ui_dma_tx.md](ai_sessions/2026-03-26_rm_ui_dma_tx.md)：裁判 UI 发送改为 USART6 TX DMA，消除 `REFEREE` 任务内阻塞串口发送
 - [ai_sessions/2026-03-26_usb_task_telem_none_zero_overhead.md](ai_sessions/2026-03-26_usb_task_telem_none_zero_overhead.md)：TELEM_MODE_NONE 下 USBTask 零 CPU 开销化（任务挂起 + 资源裁剪）
+- [ai_sessions/2026-04-06_chassis_power_limit_default_conservative.md](ai_sessions/2026-04-06_chassis_power_limit_default_conservative.md)：功率限制默认编译模式切回保守版（V1）记录
 - [plans/2026-03-06-shoot-hust-trigger-refactor-design.md](plans/2026-03-06-shoot-hust-trigger-refactor-design.md)：Shoot 发射控制按 HUST 风格重构的设计文档（上层命令生成 + 下层拨盘执行）
 - [plans/2026-03-06-shoot-hust-trigger-refactor-implementation.md](plans/2026-03-06-shoot-hust-trigger-refactor-implementation.md)：Shoot 发射控制按 HUST 风格重构的实施计划与板端验收步骤
 - [plans/2026-03-07-shoot-hust-core-replacement-impl.md](plans/2026-03-07-shoot-hust-core-replacement-impl.md)：Shoot HUST 控制核心替换实施计划（Codex 执行版）
