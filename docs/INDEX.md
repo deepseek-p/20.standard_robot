@@ -77,6 +77,8 @@
 - [plans/2026-03-07-shoot-hust-core-replacement-impl.md](plans/2026-03-07-shoot-hust-core-replacement-impl.md)：Shoot HUST 控制核心替换实施计划（Codex 执行版）
 - [plans/2026-03-24-power-limit-ui-design.md](plans/2026-03-24-power-limit-ui-design.md)：功率限制与裁判客户端 UI 设计稿
 - [plans/2026-03-24-power-limit-ui-implementation.md](plans/2026-03-24-power-limit-ui-implementation.md)：功率限制与裁判客户端 UI 实施计划
+- [plans/2026-04-06-readme-chinese-design.md](plans/2026-04-06-readme-chinese-design.md)：GitHub README 中文首页改版设计
+- [plans/2026-04-06-readme-chinese-implementation.md](plans/2026-04-06-readme-chinese-implementation.md)：GitHub README 中文首页改版实施计划
 - [adr/ADR_TEMPLATE.md](adr/ADR_TEMPLATE.md)：架构决策记录模板
 
 ## 根目录兼容入口
