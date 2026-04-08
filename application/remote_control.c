@@ -26,6 +26,8 @@
 #include "string.h"
 
 #include "detect_task.h"
+#include "wifi_bridge.h"
+#include "uart_mode.h"
 
 
 
@@ -186,7 +188,9 @@ void USART3_IRQHandler(void)
                 sbus_to_rc(sbus_rx_buf[0], &rc_ctrl);
                 //记录数据接收时间
                 detect_hook(DBUS_TOE);
+#if !WIFI_BRIDGE_ENABLE && !USART1_VT03
                 sbus_to_usart1(sbus_rx_buf[0]);
+#endif
             }
         }
         else
@@ -218,7 +222,9 @@ void USART3_IRQHandler(void)
                 sbus_to_rc(sbus_rx_buf[1], &rc_ctrl);
                 //记录数据接收时间
                 detect_hook(DBUS_TOE);
+#if !WIFI_BRIDGE_ENABLE && !USART1_VT03
                 sbus_to_usart1(sbus_rx_buf[1]);
+#endif
             }
         }
     }

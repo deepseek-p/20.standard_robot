@@ -175,6 +175,11 @@ void get_chassis_power_and_buffer(fp32 *power, fp32 *buffer)
 
 }
 
+uint16_t get_chassis_power_limit(void)
+{
+    return 120u;
+}
+
 
 uint8_t get_robot_id(void)
 {

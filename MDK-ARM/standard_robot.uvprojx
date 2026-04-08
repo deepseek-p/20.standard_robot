@@ -856,6 +856,11 @@
               <FilePath>..\application\gimbal_task.c</FilePath>
             </File>
             <File>
+              <FileName>keyboard_action.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\application\keyboard_action.c</FilePath>
+            </File>
+            <File>
               <FileName>INS_task.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\application\INS_task.c</FilePath>
@@ -874,6 +879,11 @@
               <FileName>referee_usart_task.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\application\referee_usart_task.c</FilePath>
+            </File>
+            <File>
+              <FileName>rm_ui.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\application\rm_ui.c</FilePath>
             </File>
             <File>
               <FileName>remote_control.c</FileName>
@@ -899,6 +909,11 @@
               <FileName>voltage_task.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\application\voltage_task.c</FilePath>
+            </File>
+            <File>
+              <FileName>vt03_link.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\application\vt03_link.c</FilePath>
             </File>
             <File>
               <FileName>led_flow_task.c</FileName>

@@ -25,16 +25,16 @@
 
 | 文件 | 职责一句话 | 关键接口/数据（初填） |
 | --- | --- | --- |
-| `application/CAN_receive.c` / `application/CAN_receive.h` | 处理 CAN 电机反馈与电流下发 | `HAL_CAN_RxFifo0MsgPendingCallback`、`CAN_cmd_chassis`、`CAN_cmd_gimbal`、`motor_measure_t` |
+| `application/CAN_receive.c` / `application/CAN_receive.h` | 处理 CAN 电机反馈与电流下发 | `HAL_CAN_RxFifo0MsgPendingCallback`（按 `hcan1/hcan2` 分流）、`CAN_cmd_chassis`、`CAN_cmd_gimbal`、`CAN_cmd_fric`、`get_fric1_motor_measure_point`、`get_fric2_motor_measure_point`、`motor_measure_t` |
 | `application/remote_control.c` / `application/remote_control.h` | 解析 SBUS 遥控数据并处理掉线恢复 | `USART3_IRQHandler`、`remote_control_init`、`get_remote_control_point`、`RC_ctrl_t` |
 | `application/gimbal_task.c` / `application/gimbal_task.h` | 云台控制主任务（姿态环/速度环 + CAN 输出，导出调试快照） | `gimbal_task`、`gimbal_control_t`、`gimbal_mode_change_control_transit`、`gimbal_absolute_angle_limit`、`gimbal_relative_angle_limit`、`set_cali_gimbal_hook`、`cmd_cali_gimbal_hook`、`get_gimbal_debug_snapshot`；`GIMBAL_YAW_CONTINUOUS_TURN` 下采用 yaw `continuous_*` 字段、`set/control_loop` 调用点拆分、模式切换连续 set 同步与 snapshot 连续角输出 |
 | `application/gimbal_behaviour.c` / `application/gimbal_behaviour.h` | 云台行为状态机（ZERO_FORCE/INIT/CALI/ANGLE） | `gimbal_behaviour_mode_set`、`gimbal_behaviour_control_set`、`gimbal_cali_control`；当前拨杆映射为 `s0=DOWN -> GIMBAL_ZERO_FORCE`、`s0=MID/UP -> GIMBAL_ABSOLUTE_ANGLE`；在 `GIMBAL_ABSOLUTE_ANGLE` 下当前控制为 `yaw=GIMBAL_MOTOR_GYRO`、`pitch=GIMBAL_MOTOR_ENCONDE`（AHRS pitch 失真下的临时 fallback）；连续旋转模式下跳过 yaw max/min 校准步并直接进入 `GIMBAL_CALI_END_STEP`，同时禁用 `TURN_KEYBOARD` 的 180° 掉头逻辑 |
 | `application/chassis_task.c` / `application/chassis_task.h` | 底盘控制主任务（运动解算、PID、CAN 输出，导出调试快照） | `chassis_task`、`chassis_move_t`、`chassis_rc_to_control_vector`、`get_chassis_debug_snapshot` |
 | `application/chassis_behaviour.c` / `application/chassis_behaviour.h` | 底盘行为状态机（官方模式 + HUST 模式映射） | `chassis_behaviour_mode_set`、`chassis_behaviour_control_set`、`CHASSIS_HUST_SELF_PROTECT`；当前遥控映射（step1 回切）：`s0=UP -> HUST_SelfProtect`、`s0=MID -> HUST_Act(底盘 FOLLOW_GIMBAL_YAW)`、`s0=DOWN -> CHASSIS_NO_MOVE`；`HUST_SelfProtect` 在行为函数内已增加基于 `relative_angle` 的平移坐标补偿，避免自旋时推杆轨迹画圆 |
 | `application/chassis_power_control.c` / `application/chassis_power_control.h` | 底盘功率限流（参考裁判系统功率/缓冲） | `chassis_power_control`、`get_chassis_power_and_buffer` |
-| `application/shoot.c` / `application/shoot.h` | 射击状态机与拨弹/摩擦轮控制 | `shoot_init`、`shoot_control_loop`、`shoot_mode_e` |
+| `application/shoot.c` / `application/shoot.h` | 射击状态机与拨弹/摩擦轮控制 | `shoot_init`、`shoot_control_loop`、`shoot_get_fric_current`、`shoot_mode_e`；摩擦轮为双 3508（`hcan2 0x201/0x202`）速度闭环；拨轮为“位置环+速度环”双环控制；支持 `Q/C/F/SHIFT/G/R`（开关/高射频/弹速微调/手动反转/爆发模式）；比赛模式下启用本地热量预测门控 |
 | `application/referee.c` / `application/referee.h` | 裁判系统数据结构维护与查询接口 | `referee_data_solve`、`get_robot_id`、`get_shoot_heat0_limit_and_heat0` |
-| `application/referee_usart_task.c` / `application/referee_usart_task.h` | 裁判系统串口 DMA 接收与协议解包任务 | `referee_usart_task`、`USART6_IRQHandler`、`referee_unpack_fifo_data` |
+| `application/referee_usart_task.c` / `application/referee_usart_task.h` | 裁判系统串口 DMA 接收与协议解包任务（WiFi 模式下承载 USART1 RXNE 环形缓冲） | `referee_usart_task`、`USART6_IRQHandler`、`USART1_IRQHandler`、`referee_unpack_fifo_data`、`uart1_rx_available/read` |
 | `application/INS_task.c` / `application/INS_task.h` | IMU 采样、姿态解算、温控与数据发布 | `INS_task`、`get_INS_angle_point`、`HAL_GPIO_EXTI_Callback`、`DMA2_Stream2_IRQHandler` |
 | `application/detect_task.c` / `application/detect_task.h` | 在线状态与错误检测中心 | `detect_task`、`detect_hook`、`toe_is_error`、`error_list` |
 | `application/usb_task.c` / `application/usb_task.h` | USB CDC 调试任务（FireWater 遥测 + 在线 PID 命令解析） | `usb_task`、`usb_debug_set_channel_mask`、`usb_debug_get_channel_mask`、`usb_cmd_process`、`CDC_Transmit_FS`、`usb_rx_available`、`usb_rx_read_byte` |
@@ -52,7 +52,7 @@
 | `components/devices/OLED.*` | OLED 图形与字符显示驱动（I2C + GRAM 缓冲） |
 | `components/algorithm/AHRS_middleware.*` | 姿态解算中间层，封装数学函数与平台相关能力（高度/纬度等） |
 | `components/algorithm/AHRS.*` | 姿态解算核心接口（四元数更新、欧拉角计算） |
-| `components/controller/pid.*` | 通用 PID 控制器实现 |
+| `components/controller/pid.*` | PID 控制器实现（保留原 `pid_type_def`，并新增 `pid_enhanced_t` 供拨轮双环使用） |
 | `components/support/fifo.*` | 字节 FIFO，裁判系统串口解包关键依赖 |
 | `components/support/CRC8_CRC16.*` | 协议 CRC 校验工具 |
 
@@ -90,3 +90,217 @@
 - `Src/usbd_cdc_if.c/h`: add SPSC RX ring buffer API (`usb_rx_available` / `usb_rx_read_byte`), and keep `CDC_Receive_FS` as enqueue-only fast path.
 - `Src/freertos.c`: `USBTask` stack increased to improve robustness for long-format telemetry output.
 
+## 2026-02-26 Supplement: WiFi Bridge Module Map
+
+- `application/wifi_bridge.h` (new):
+  - central switch `WIFI_BRIDGE_ENABLE`;
+  - UART1 WiFi RX API declaration (`uart1_rx_available` / `uart1_rx_read_byte`).
+- `application/referee_usart_task.c`:
+  - retains referee decode chain for `WIFI_BRIDGE_ENABLE=0`;
+  - keeps `USART6_IRQHandler` as referee-only IDLE+DMA;
+  - adds WiFi RX `USART1_IRQHandler` ring-buffer path.
+- `application/usb_task.c`:
+  - adds `wifi_uart1_init`, `wifi_cmd_process`, `wifi_cmd_replyf`;
+  - command parser now supports reply-function routing per ingress channel;
+  - FireWater output duplicates to USART1 when WiFi mode is enabled.
+- `application/remote_control.c`:
+  - `sbus_to_usart1` forwarding is disabled under `WIFI_BRIDGE_ENABLE=1` to avoid bridge-port contention.
+- External companion projects:
+  - `D:/tools/esp32_wifi_bridge`: ESP32 AP + UDP/TCP bridge firmware.
+
+## 2026-02-27 Supplement: Telemetry Mode Mutex + Split Drop Counter
+
+- `application/usb_task.h`:
+  - Replaced `USB_DEBUG_OUTPUT_ENABLE` with output-mode macros:
+    `TELEM_MODE_NONE` / `TELEM_MODE_USB` / `TELEM_MODE_WIFI`,
+    plus configurable `TELEM_OUTPUT_MODE`.
+- `application/wifi_bridge.h`:
+  - Added `#include "usb_task.h"`.
+  - `WIFI_BRIDGE_ENABLE` now derives from `TELEM_OUTPUT_MODE == TELEM_MODE_WIFI`.
+- `application/usb_task.c`:
+  - Added `wifi_debug_drop_cnt` (compiled only when WiFi bridge enabled).
+  - Main telemetry scheduling gate changed to:
+    `#if (TELEM_OUTPUT_MODE != TELEM_MODE_NONE)`.
+  - FireWater `drop` field now reports WiFi drop count in WiFi mode.
+  - Oversize-frame drop accounting now follows active output channel.
+  - Replaced dual-send path with mutually-exclusive send path:
+    USB-only / WiFi-only / no-output.
+
+## 2026-02-27 Supplement: Pitch Adaptive Gravity Feedforward
+
+- `application/gimbal_task.h`:
+  - Replaced fixed-K feedforward macros with adaptive LMS parameter macros:
+    `PITCH_FF_GAMMA_*` / `PITCH_FF_*_INIT` / `PITCH_FF_*_MAX` /
+    `PITCH_FF_SPEED_TH` / `PITCH_FF_ERR_TH` / `PITCH_FF_SAT_TH` / `PITCH_FF_ALPHA_DOT_MAX`.
+- `application/gimbal_task.c`:
+  - `gimbal_motor_relative_angle_control` now computes:
+    `I_pid` (speed-loop output) + `I_ff = K_hat*cos(theta)+b_hat`.
+  - Added quasi-static gated LMS update for `K_hat/b_hat` with step-rate limit and clamp.
+  - Removed dependency on `shoot_control.bullet_fired_count` in pitch feedforward path.
+- `application/shoot.c/h`:
+  - Existing `bullet_fired_count` can be retained for future telemetry/strategy use,
+    but no longer participates in pitch feedforward compensation.
+
+## 2026-02-27 Supplement: Adaptive FF Deadlock Fix (7b)
+
+- `application/gimbal_task.h`:
+  - Updated adaptive parameters:
+    `PITCH_FF_GAMMA_K/B` raised from `0.0005` to `0.005`,
+    `PITCH_FF_ALPHA_DOT_MAX` raised from `5.0` to `50.0`.
+  - Removed `PITCH_FF_ERR_TH` macro.
+- `application/gimbal_task.c`:
+  - In pitch adaptive learning gate, removed angle-error condition.
+  - Learning now keeps running in low-speed pinned state, preventing
+    “feedforward not enough -> large angle error -> no update” deadlock chain.
+
+## 2026-02-27 Supplement: Pitch FF Decouple + Telemetry (7c)
+
+- `application/gimbal_task.c`:
+  - Pitch adaptive FF states moved to file scope:
+    `pitch_ff_K_hat` / `pitch_ff_b_hat`.
+  - Added public getters:
+    `get_pitch_ff_K_hat()` / `get_pitch_ff_b_hat()`.
+  - In pitch ENCONDE control path, FF and PID are composed into `I_total`
+    and hard-clamped to `±16000` before `given_current` conversion.
+- `application/gimbal_task.h`:
+  - Declared FF getter APIs for cross-module telemetry consumption.
+- `application/usb_task.c`:
+  - FireWater output extended with 2 FF observability fields:
+    `ff_k_hat` (milli-scale) and `ff_b_hat` (raw).
+
+## 2026-02-27 Supplement: Pitch FF Adaptive Gamma (7d)
+
+- `application/gimbal_task.h`:
+  - Replaced fixed LMS gain macros
+    `PITCH_FF_GAMMA_K/B`
+    with adaptive-gamma macros:
+    `PITCH_FF_GAMMA_BASE` / `PITCH_FF_GAMMA_ERR_GAIN` / `PITCH_FF_GAMMA_MAX`.
+- `application/gimbal_task.c`:
+  - In pitch adaptive learning block, added angle-error-based gamma calculation and clamp.
+  - LMS update now uses:
+    `dk = gamma * error * cos_theta`,
+    `db = gamma * error`.
+  - No change to FF composition clamp, PID parameters, telemetry outputs, or rate-limit safety net.
+
+## 2026-02-28 Supplement: Shoot Trigger Motor Optimization
+
+- `components/controller/pid.h` / `components/controller/pid.c`:
+  - Added `pid_enhanced_t` and APIs:
+    `PID_enhanced_init()` / `PID_enhanced_calc()` / `PID_enhanced_clear()`.
+  - Capability includes dead-zone, variable integral region, trapezoidal integral,
+    and incomplete-derivative filtering.
+- `application/shoot.h` / `application/shoot.c`:
+  - Replaced trigger single-loop PID field with:
+    `trigger_pos_pid` + `trigger_spd_pid`.
+  - Added continuous trigger encoder states:
+    `trigger_ecd_set` / `trigger_ecd_fdb`.
+  - Added local heat predictor states:
+    `local_heat` / `referee_heat` / `burst_mode`.
+  - Added `R`-key burst toggle and safe/burst heat gating.
+- `application/usb_task.c`:
+  - `USB_PID_TARGET_TRIGGER` online tuning target now maps to
+    `shoot_control.trigger_spd_pid`.
+
+## 2026-02-28 Supplement: VT03 UART Mode Switching
+
+- `application/uart_mode.h` (new):
+  - central compile-time switch `CURRENT_UART_MODE`;
+  - derived macros: `USART6_VT03/USART6_REFEREE/USART1_VT03/USART1_WIFI/VT03_ENABLE`;
+  - compile-time guard for competition mode vs WiFi telemetry conflict.
+- `application/vt03_link.c/h` (new):
+  - VT03 frame state machine and CRC16 check;
+  - decodes VT03 payload into shared `rc_ctrl` and refreshes `detect_hook(VT03_TOE)`.
+- `application/referee_usart_task.c`:
+  - `USART6_IRQHandler` split by mode (`VT03 RXNE` vs `referee DMA+IDLE`);
+  - `USART1_IRQHandler` split by mode (`VT03 RXNE` vs `WiFi ring buffer`);
+  - task init split by mode (`usart6_init(...)` vs `__HAL_UART_ENABLE_IT(UART_IT_RXNE)`).
+- `Src/usart.c`:
+  - `MX_USART1_UART_Init` and `MX_USART6_UART_Init` baudrate switched by UART mode macros.
+- `application/wifi_bridge.h`:
+  - `WIFI_BRIDGE_ENABLE` now depends on both `USART1_WIFI` and `TELEM_OUTPUT_MODE==TELEM_MODE_WIFI`.
+- `Src/main.c`:
+  - USER init adds `USART1_VT03` branch to enable RXNE IRQ and skip `usart1_tx_dma_init`.
+- `application/remote_control.c`:
+  - DBUS forwarding to USART1 is blocked when `USART1_VT03` is active.
+- `application/detect_task.h/c`:
+  - adds `VT03_TOE` and corresponding threshold row in `set_item`.
+
+## 2026-03-01 Supplement: Keyboard Action Module
+
+- `application/keyboard_action.h` / `application/keyboard_action.c` (new):
+  - centralized edge detection for keyboard bits (`rising/falling/held`);
+  - VT13 long/short press decode for `fn_1/fn_2/pause` with 300ms threshold;
+  - normalized command export via `get_keyboard_cmd()`,
+    plus state export `get_kb_chassis_mode()` / `get_kb_zero_force()`.
+- `application/gimbal_task.c`:
+  - module init/update hook integration in 1ms control loop.
+- `application/shoot.c`:
+  - consumes keyboard-action commands for shoot toggle, burst/high-frequency mode,
+    trigger reverse, VT03 trigger pulse, and fric speed adjust.
+  - `SHOOT_READY_BULLET` changed to static standby (removed automatic trigger-wheel pre-spin).
+  - fire edge can enter `SHOOT_BULLET` from both `SHOOT_READY` and `SHOOT_READY_BULLET`.
+  - keyboard-assist gate unified as `s1=MID` or (`VT03 online` and `s0!=DOWN`).
+- `application/chassis_behaviour.c`:
+  - consumes `get_kb_chassis_mode()` to override mode selection when `s0 != DOWN`.
+- `application/gimbal_behaviour.c`:
+  - consumes `get_kb_zero_force()` to force `GIMBAL_ZERO_FORCE`.
+- `application/vt03_link.c`:
+  - mode switch mapped to DBUS-compatible `rc.s[0]` values before upper modules consume it.
+- `application/usb_task.c`:
+  - keeps FireWater fixed-field frame length unchanged;
+  - extends `event_bits` with `bit8..20` for VT13 raw key states and `keyboard_cmd` pulse observability.
+
+
+## 2026-03-06 Supplement: Shoot State Machine Align HUST
+
+- `application/shoot.c`:
+  - `SHOOT_READY_BULLET` / `SHOOT_READY` / `SHOOT_DONE` now share the same active position hold authority (`trigger_pos_pid -> trigger_spd_pid` cascade).
+  - `SHOOT_READY` no longer resets `trigger_ecd_set` to feedback each cycle.
+  - `SHOOT_DONE` no longer waits for low-speed timeout; it is converted into a compatibility transition back to `SHOOT_READY_BULLET` on next mode update.
+- `application/shoot.h`:
+  - removed deprecated macros `SHOOT_DONE_KEY_OFF_TIME` and `TRIGGER_POS_MAX_OUT_HOLD`.
+  - removed stale state field `key_time` from `shoot_control_t`.
+- Unchanged contracts:
+  - `shoot_mode_e` enum values are unchanged.
+  - continuous-fire and anti-stall reverse bookkeeping interfaces are unchanged.
+
+## 2026-03-07 Supplement: Shoot Core Replacement (HUST)
+
+## 2026-03-24 Supplement: Power Limit + Referee UI Module Map
+
+- `application/rm_ui.c/h`
+  - 新增裁判客户端 UI 发送模块。
+  - 关键接口：
+    - `rm_ui_init()`
+    - `rm_ui_update()`
+- `application/referee_usart_task.c`
+  - 现同时承担裁判客户端 UI 的发送调度入口。
+- `application/chassis_power_control.c/h`
+  - 改为模型功率估算限流。
+  - 仍仅依赖裁判 `power/buffer` 读数，不含 supercap。
+- `application/shoot.c/h`
+  - 新增 UI 只读导出：
+    - `shoot_get_ui_gear()`
+    - `shoot_consume_reverse_success_pulse()`
+- `MDK-ARM/standard_robot.uvprojx`
+  - application 组新增 `rm_ui.c` 文件项。
+
+- `application/shoot.h`:
+  - 枚举收敛为 5 态：`STOP/READY_FRIC/READY_BULLET/BULLET/CONTINUE_BULLET`
+  - 拨弹速度环参数切换到 HUST rpm 参数组（`TRIGGER_SPD_KP=6.2, KI=3.2`）
+  - 删除旧 `shoot_logic` 相关状态字段（`jam_*`、`*_dbg` 等）
+- `application/shoot.c`:
+  - 删除 `#include "shoot_logic.h"`，模式转换内联实现
+  - 连发路径切换为速度环直驱（`PULLER_SPEED_NORMAL/HIGH_FREQ`）
+  - 速度滤波输入从 `speed_rpm * MOTOR_RPM_TO_SPEED` 改为 `speed_rpm`
+- `MDK-ARM/standard_robot.uvprojx`:
+  - 删除 `shoot_logic.c` 文件项（工程不再编译该模块）
+
+## 2026-03-26 Supplement: `usb_task` NONE-Mode Interface and Ownership
+
+- `application/usb_task.c`
+  - `usb_task()` remains always available for task creation compatibility.
+  - Telemetry internals (`usb_buf`, parser helpers, PID command parser, channel-mask functions) are now built only when `TELEM_OUTPUT_MODE != TELEM_MODE_NONE`.
+- `application/usb_task.h`
+  - `usb_debug_set_channel_mask()` / `usb_debug_get_channel_mask()` declarations are now exported only in non-NONE modes.
+  - `TELEM_MODE_NONE` semantics updated to “telemetry + command disabled, task permanently suspended”.

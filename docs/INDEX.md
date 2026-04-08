@@ -9,6 +9,7 @@
 - [02_ARCHITECTURE.md](02_ARCHITECTURE.md)：系统架构与关键数据流
 - [03_TASK_MAP.md](03_TASK_MAP.md)：任务映射（由代码自动初填）
 - [04_MODULE_MAP.md](04_MODULE_MAP.md)：模块地图（目录/关键文件）
+- [05_BOARD_PHYSICAL_MAP.md](05_BOARD_PHYSICAL_MAP.md)：C 板物理接口与外设连接手册（丝印对照、PWM/DBUS/UART 详情、裁判系统架构、VT03 接入分析）
 
 ## 模板与过程资产
 
@@ -48,6 +49,36 @@
 - [ai_sessions/2026-02-25_pitch_encode_speed_feedback_from_encoder.md](ai_sessions/2026-02-25_pitch_encode_speed_feedback_from_encoder.md)：Pitch ENCONDE 模式下速度环改用编码器转速反馈（替代 IMU pitch gyro）
 - [ai_sessions/2026-02-25_pitch_encode_ecd_lpf_damping.md](ai_sessions/2026-02-25_pitch_encode_ecd_lpf_damping.md)：Pitch ENCONDE 速度反馈加入一阶低通，抑制 1ms 量化阶梯引发的残余振荡
 - [ai_sessions/2026-02-25_pitch_encode_pid_kp24_ki0_finalize.md](ai_sessions/2026-02-25_pitch_encode_pid_kp24_ki0_finalize.md)：Pitch ENCONDE 角度环参数固化为 Kp=24/Ki=0，消除上电重复调参
+- [ai_sessions/2026-02-26_shoot_fric_can_closed_loop_migration.md](ai_sessions/2026-02-26_shoot_fric_can_closed_loop_migration.md)：摩擦轮从 PWM 开环迁移到 hcan2 双 3508 CAN 闭环速度控制
+- [ai_sessions/2026-02-26_wifi_bridge_usart6_esp32_mcp.md](ai_sessions/2026-02-26_wifi_bridge_usart6_esp32_mcp.md)：WiFi 无线调参链路落地（USART6 + ESP32 + MCP）
+- [ai_sessions/2026-02-26_wifi_bridge_migrate_to_usart1.md](ai_sessions/2026-02-26_wifi_bridge_migrate_to_usart1.md)：WiFi 桥接迁移到 USART1（板载 UART2 4pin 映射）
+- [ai_sessions/2026-02-27_pitch_gravity_feedforward_bullet_count.md](ai_sessions/2026-02-27_pitch_gravity_feedforward_bullet_count.md)：Pitch ENCONDE 重力前馈补偿 + 拨弹发射计数衰减补偿
+- [ai_sessions/2026-02-27_pitch_adaptive_gravity_feedforward.md](ai_sessions/2026-02-27_pitch_adaptive_gravity_feedforward.md)：Pitch ENCONDE 自适应重力前馈（LMS在线估计 K_hat/b_hat）
+- [ai_sessions/2026-02-27_pitch_adaptive_ff_deadlock_fix.md](ai_sessions/2026-02-27_pitch_adaptive_ff_deadlock_fix.md)：Pitch 自适应前馈去角度误差门限，修复装弹工况学习死锁
+- [ai_sessions/2026-02-27_pitch_ff_decouple_telemetry.md](ai_sessions/2026-02-27_pitch_ff_decouple_telemetry.md)：Pitch 自适应前馈解耦硬限幅 + FF观测遥测通道
+- [ai_sessions/2026-02-27_pitch_ff_adaptive_gamma.md](ai_sessions/2026-02-27_pitch_ff_adaptive_gamma.md)：Pitch 自适应前馈误差自适应GAMMA加速收敛
+- [ai_sessions/2026-02-27_usb_telem_mode_mutex_drop_split.md](ai_sessions/2026-02-27_usb_telem_mode_mutex_drop_split.md)：USB/WiFi/关闭 三模式互斥遥测 + drop_cnt 双通道独立计数
+- [ai_sessions/2026-02-27_usb_task_priority_below_normal_dbus_offline_fix.md](ai_sessions/2026-02-27_usb_task_priority_below_normal_dbus_offline_fix.md)：WiFi 遥测模式下降低 USBTask 优先级，修复 DBUS 误离线告警
+- [ai_sessions/2026-02-28_shoot_trigger_motor_optimization.md](ai_sessions/2026-02-28_shoot_trigger_motor_optimization.md)：拨轮双环 + 本地热量预测/爆发模式落地
+- [ai_sessions/2026-02-28_vt03_uart_mode_switching.md](ai_sessions/2026-02-28_vt03_uart_mode_switching.md)：VT03 图传链路接入 + UART 三模式编译期切换
+- [ai_sessions/2026-03-01_vt03_keyboard_action.md](ai_sessions/2026-03-01_vt03_keyboard_action.md)：VT03/VT13 键鼠动作集中管理（keyboard_action）与底盘/云台/发射联动
+- [ai_sessions/2026-03-02_shoot_single_fire_reverse_grid_fix.md](ai_sessions/2026-03-02_shoot_single_fire_reverse_grid_fix.md)：Shoot 单发修复 + fn_2 长按反转持续输出 + 拨轮 1/9 格数修正
+- [ai_sessions/2026-03-03_detect_trigger_motor_toe_temp_disable.md](ai_sessions/2026-03-03_detect_trigger_motor_toe_temp_disable.md)：临时禁用 TRIGGER_MOTOR 离线检测（电机拆卸维修期间）
+- [ai_sessions/2026-03-03_vt03_dbus_mouse_button_preserve.md](ai_sessions/2026-03-03_vt03_dbus_mouse_button_preserve.md)：VT03 保留 DBUS 鼠标左右键（仅 DBUS 离线时清零）
+- [ai_sessions/2026-03-04_gimbal_pitch_mouse_y_invert.md](ai_sessions/2026-03-04_gimbal_pitch_mouse_y_invert.md)：反转鼠标 Y 轴控制 pitch 方向（仅改两处符号）
+- [ai_sessions/2026-03-06_shoot_state_machine_align_hust.md](ai_sessions/2026-03-06_shoot_state_machine_align_hust.md)：Shoot 状态机按 HUST 结构对齐（持续级联持仓 + DONE 兼容态）
+- [ai_sessions/2026-03-07_shoot_hust_core_replacement.md](ai_sessions/2026-03-07_shoot_hust_core_replacement.md)：Shoot 控制核心替换为 HUST_Infantry_2023 方案（rpm 级联 + 连发直驱 + 简化反转）
+- [ai_sessions/2026-03-24_power_limit_ui.md](ai_sessions/2026-03-24_power_limit_ui.md)：功率预测限流移植 + 裁判客户端 UI 落地记录
+- [ai_sessions/2026-03-26_rm_ui_dma_tx.md](ai_sessions/2026-03-26_rm_ui_dma_tx.md)：裁判 UI 发送改为 USART6 TX DMA，消除 `REFEREE` 任务内阻塞串口发送
+- [ai_sessions/2026-03-26_usb_task_telem_none_zero_overhead.md](ai_sessions/2026-03-26_usb_task_telem_none_zero_overhead.md)：TELEM_MODE_NONE 下 USBTask 零 CPU 开销化（任务挂起 + 资源裁剪）
+- [ai_sessions/2026-04-06_chassis_power_limit_default_conservative.md](ai_sessions/2026-04-06_chassis_power_limit_default_conservative.md)：功率限制默认编译模式切回保守版（V1）记录
+- [plans/2026-03-06-shoot-hust-trigger-refactor-design.md](plans/2026-03-06-shoot-hust-trigger-refactor-design.md)：Shoot 发射控制按 HUST 风格重构的设计文档（上层命令生成 + 下层拨盘执行）
+- [plans/2026-03-06-shoot-hust-trigger-refactor-implementation.md](plans/2026-03-06-shoot-hust-trigger-refactor-implementation.md)：Shoot 发射控制按 HUST 风格重构的实施计划与板端验收步骤
+- [plans/2026-03-07-shoot-hust-core-replacement-impl.md](plans/2026-03-07-shoot-hust-core-replacement-impl.md)：Shoot HUST 控制核心替换实施计划（Codex 执行版）
+- [plans/2026-03-24-power-limit-ui-design.md](plans/2026-03-24-power-limit-ui-design.md)：功率限制与裁判客户端 UI 设计稿
+- [plans/2026-03-24-power-limit-ui-implementation.md](plans/2026-03-24-power-limit-ui-implementation.md)：功率限制与裁判客户端 UI 实施计划
+- [plans/2026-04-06-readme-chinese-design.md](plans/2026-04-06-readme-chinese-design.md)：GitHub README 中文首页改版设计
+- [plans/2026-04-06-readme-chinese-implementation.md](plans/2026-04-06-readme-chinese-implementation.md)：GitHub README 中文首页改版实施计划
 - [adr/ADR_TEMPLATE.md](adr/ADR_TEMPLATE.md)：架构决策记录模板
 
 ## 根目录兼容入口
@@ -56,4 +87,3 @@
 - [../AGENTS.md](../AGENTS.md)
 - [../git-guide.md](../git-guide.md)
 - [../README.md](../README.md)
-

@@ -1,83 +1,308 @@
-﻿# CURRENT_STATE锛堟敹绾抽〉锛?
-鍚屾鏃ユ湡锛歚2026-02-24`
-鏈€杩戣ˉ褰曪細`docs/ai_sessions/2026-02-24_pitch_speed_loop_limit_cycle_tune.md`
+# CURRENT_STATE（收纳页）
 
-## 褰撳墠鐢熸晥鎺у埗璇箟锛堜互浠ｇ爜涓哄噯锛?
-- `s0=DOWN`锛歚CHASSIS_NO_MOVE` + `GIMBAL_ZERO_FORCE`
-- `s0=MID`锛歚CHASSIS_INFANTRY_FOLLOW_GIMBAL_YAW` + `GIMBAL_ABSOLUTE_ANGLE`锛圚UST_Act锛?- `s0=UP`锛歚CHASSIS_HUST_SELF_PROTECT` + `GIMBAL_ABSOLUTE_ANGLE`锛圚UST_SelfProtect锛?- yaw 杩炵画鏃嬭浆閾捐矾淇濇寔鍚敤锛坄GIMBAL_YAW_CONTINUOUS_TURN` 璺緞浠嶅湪锛?
-## 鍓嶅嚑娆℃敼鍔ㄩ獙鏀剁姸鎬侊紙琛ュ綍锛?
-| 浼氳瘽 | 楠屾敹鐘舵€?| 褰撳墠缁撹 |
-| --- | --- | --- |
-| `2026-02-24_pitch_linkage_gyro_mode_pid_tune.md` | In Progress | 宸茬‘璁?GYRO 鍒囨ā鎴愬姛涓旂ǔ鎬佽璇樊鏄捐憲涓嬮檷锛涗絾闈欐娈甸€熷害鐜粛鏈夋瀬闄愮幆鎸崱銆?|
-| `2026-02-24_pitch_speed_loop_limit_cycle_tune.md` | In Progress | 宸插湪 `data/pitch_data.md` 绗簩鐗堝洖濉埌鏀瑰悗鏁版嵁锛氶潤姝㈡鏄庢樉鏀瑰杽锛屼絾鎱㈡帹/蹇帹宄板€间粛鍋忛珮锛岄渶缁х画璋冨弬銆?|
-| `2026-02-23_chassis_mid_follow_restore_step1.md` + `2026-02-23_mid_follow_gimbal_absolute_alignment_fix.md` | 宸查獙鏀?| MID 涓嬪凡鍒囧埌 FOLLOW + ABS 缁勫悎锛岃В闄?FOLLOW/ENCONDE 缁撴瀯鎬у啿绐併€?|
-| `2026-02-23_chassis_follow_pid_step1_soft_gain.md` + `2026-02-23_chassis_follow_wraparound_brake_fix.md` + 鍚庣画鍙傛暟琛ヨ皟 | 宸查獙鏀?| MID 鎸崱涓婚棶棰樺凡鍘嬩綇锛岀敤鎴峰弽棣堚€淢ID 妯″紡宸茬粡鍩烘湰璋冨ソ鈥濄€?|
-| `2026-02-23_gimbal_yaw_continuous_turn_v4_callsite_split.md` | 閮ㄥ垎楠屾敹 | 鐢ㄦ埛鍙嶉 MID/UP 鍒囨尅涓?yaw 杩炵画杞湀鍙敤锛涢暱璺戜笌娓╁崌楠岃瘉浠嶅緟琛ラ綈銆?|
-| `2026-02-23_chassis_hust_mode_mapping_swap.md` + `2026-02-24_chassis_selfprotect_frame_rotation_compensation.md` + `2026-02-24_chassis_selfprotect_sin_sign_fix.md` | 宸查獙鏀讹紙鍙ｈ堪锛?| 鐢ㄦ埛鍙嶉 UP鈥滅幇璞℃甯革紝鍙竟杞竟璧扳€濓紱褰撳墠缂?VOFA+ 閲忓寲涓庨暱璺戣瘉鎹€?|
+同步日期：`2026-04-06`
 
-## 褰撳墠鍏抽敭鍙傛暟蹇収
+## 当前生效控制语义（以代码为准）
 
-- `application/chassis_task.h`
-- `CHASSIS_FOLLOW_GIMBAL_PID_KP=8.0f`
-- `CHASSIS_FOLLOW_GIMBAL_PID_KI=0.5f`
-- `CHASSIS_FOLLOW_GIMBAL_PID_KD=0.0f`
-- `CHASSIS_FOLLOW_GIMBAL_PID_MAX_OUT=3.0f`
-- `CHASSIS_FOLLOW_GIMBAL_PID_MAX_IOUT=1.0f`
-- `application/chassis_task.c`
-- `CHASSIS_FOLLOW_ANGLE_BRAKE_START=(PI*0.6f)`
-- `CHASSIS_FOLLOW_ANGLE_BRAKE_END=(PI*0.95f)`
-- `application/gimbal_task.h`
-- `PITCH_SPEED_PID_KP=800.0f`
-- `PITCH_SPEED_PID_KI=10.0f`
-- `PITCH_SPEED_PID_MAX_OUT=15000.0f`
-- `PITCH_SPEED_PID_MAX_IOUT=3000.0f`
-- `PITCH_GYRO_ABSOLUTE_PID_KP=5.0f`
-- `PITCH_GYRO_ABSOLUTE_PID_KI=0.3f`
-- `PITCH_GYRO_ABSOLUTE_PID_KD=0.1f`
-- `PITCH_GYRO_ABSOLUTE_PID_MAX_OUT=5.0f`
-- `PITCH_GYRO_ABSOLUTE_PID_MAX_IOUT=1.0f`
-- `PITCH_RC_SEN=-0.000004f`
+- `s0=DOWN`：`CHASSIS_NO_MOVE` + `GIMBAL_ZERO_FORCE`
+- `s0=MID`：`CHASSIS_INFANTRY_FOLLOW_GIMBAL_YAW` + `GIMBAL_ABSOLUTE_ANGLE`（HUST_Act）
+- `s0=UP`：`CHASSIS_HUST_SELF_PROTECT` + `GIMBAL_ABSOLUTE_ANGLE`（HUST_SelfProtect）
+- yaw 连续旋转链路保持启用（`GIMBAL_YAW_CONTINUOUS_TURN` 路径仍在）
+- pitch 使用 `GIMBAL_MOTOR_ENCONDE` 模式（yaw 保持 GYRO）
+- VT03 键鼠动作层已接入（`keyboard_action`）：支持 `fn_1/fn_2/pause/trigger/dial` 映射
 
-## 浠嶅緟瀹屾垚鐨勯獙鏀堕」
+## 各模块当前状态
 
-- UP锛圚UST_SelfProtect锛夊洓鍦烘櫙鑱旀祴锛氶潤姝㈣嚜鏃嬨€佹棆杞?骞崇Щ銆佹柟鍚戝垏鎹€丮ID/UP 鍒囨尅鐬€併€?- yaw 杩炵画鏃嬭浆闀胯窇涓庢俯鍗囬獙璇侊紙鍚鍙嶅悜闀挎湡宸ュ喌锛夈€?- Pitch 閫熷害鐜簩璋冮獙鏀讹細琛ュ綍闈欐/鎱㈡帹/蹇帹 `col24/33/34/37/39`锛岄噸鐐圭‘璁?`col39` 闈欐娉㈠姩鏄惁鏀舵暃鍒?`卤500` 鍐呫€?
-## 椋庨櫓鏃ュ織瀵瑰簲鍏崇郴
+### Chassis Follow（MID 跟随）
+- 状态：Mitigated（方向已修复，Ki 待调）
+- 参数：`Kp=2.0, Ki=0.0, Kd=100.0, max_out=3.0, max_iout=1.0`
+- PID 方向：`wz_set = PID_calc(...)` 无负号（YAW_TURN=0 时）
+- 刹车逻辑：已删除（旧逻辑 brake_factor=0 死锁 + PID 方向修正后不需要）
+- YAW_OFFSET_CORRECTION=351（gimbal_task.h，手动对齐测量值）
+- 最新文档：`2026-03-13_chassis_follow_pid_sign_fix.md`
+- 已验证：PID 方向正确，前后左右平移方向正确，无振荡（Ki=0 时）
+- 待办：Ki 遥测调参（Ki=0.05+Kd=100 振荡，需更大 Kd 或更小 Ki）；长跑温升验证
 
-- MID 璺熼殢鑷棆/鎸崱锛氳 `docs/risk_log.md` 涓?2026-02-23 `chassis_task / gimbal_behaviour` 鏉＄洰锛堝凡杞负鈥淢itigated锛屽緟闀胯窇鈥濓級銆?- UP 灏忛檧铻哄钩绉荤敾鍦嗭細瑙?`docs/risk_log.md` 涓?2026-02-24 `chassis_behaviour / chassis_task` 鏉＄洰锛坄Mitigated锛堝彛杩帮紝寰匳OFA+/闀胯窇锛塦锛夈€?- Pitch 杩炴潌璋冨弬涓庨€熷害鐜尟鑽★細瑙?`docs/risk_log.md` 涓?2026-02-24 `gimbal_task` 鏉＄洰锛坄In Progress`锛夈€?
-## 2026-02-24 USB Online PID Tuning
-- Status: In Progress
-- Added runtime USB CDC commands in application/usb_task.c: SET <target> <param> <value>, GET <target> <param>, DUMP.
-- Added RX ring buffer in Src/usbd_cdc_if.c and exported usb_rx_available / usb_rx_read_byte.
-- Added mutable control accessors: get_gimbal_control_point, get_chassis_control_point.
-- Pending: Keil build + board-side command interaction validation.
+### Chassis SelfProtect（UP 小陀螺）
+- 状态：Mitigated（口述，缺 VOFA+/长跑）
+- 最新文档：`2026-02-24_chassis_selfprotect_sin_sign_fix.md`
+- 待办：四场景联测（静止自旋、旋转+平移、方向切换、MID/UP 切挡瞬态）
 
-## 2026-02-24 Pitch RC Sensitivity
-- Status: In Progress
-- Changed only one macro in application/gimbal_task.h: PITCH_RC_SEN -0.000004f -> -0.000001f.
-- PID parameters and all .c files unchanged.
-- Pending: VOFA+ recheck for rc_ch3 to pitch_abs_set slope and limit-hit behavior.
+### Yaw 连续旋转
+- 状态：部分验收
+- 最新文档：`2026-02-23_gimbal_yaw_continuous_turn_v4_callsite_split.md`
+- 待办：长跑与温升验证（含反向长期工况）
 
-## 2026-02-25 Pitch ENCONDE Fallback
-- Status: In Progress
-- In GIMBAL_ABSOLUTE_ANGLE behavior: yaw stays GIMBAL_MOTOR_GYRO, pitch switched to GIMBAL_MOTOR_ENCONDE.
-- Updated PITCH_ENCODE_RELATIVE_PID to: Kp=8.0, Ki=0.2, Kd=0.1, max_out=5.0, max_iout=1.0.
-- PITCH_SPEED_PID and PITCH_ENCODE_SEN unchanged.
-- Pending: MCP post-flash verification on assembled gimbal.
+### Pitch ENCONDE 基础环（角度+速度）
+- 状态：Mitigated（待长跑）
+- 参数：角度环 `Kp=24.0, Ki=0.0, Kd=0.0, max_out=10.0, max_iout=0.5`；速度环 `Kp=800, Ki=10, max_out=15000, max_iout=3000`；ECD LPF `alpha=0.05`
+- 最新文档：`2026-02-25_pitch_encode_pid_kp24_ki0_finalize.md`
+- 待办：长跑热稳定性验证
 
-## 2026-02-25 Pitch ENCONDE Speed Feedback
-- Status: In Progress
-- In `gimbal_feedback_update`, pitch uses encoder speed (`speed_rpm * 0.104720f`) as `motor_gyro` when `pitch_mode=GIMBAL_MOTOR_ENCONDE`; non-ENCONDE modes still use IMU gyro.
-- Updated `PITCH_ENCODE_RELATIVE_PID` to: `Kp=6.0`, `Ki=0.1`, `Kd=0.0`, `max_out=10.0`, `max_iout=2.0`.
-- `PITCH_SPEED_PID_*` remains `800/10/0/15000/3000`.
-- Pending: MCP/VOFA+ post-flash verification for `pitch_gyro` consistency and current ripple.
-## 2026-02-25 Pitch ENCONDE ECD LPF
-- Status: In Progress
-- In `gimbal_feedback_update` (pitch ENCONDE branch), added first-order LPF for ecd-diff speed feedback: `alpha=0.05`.
-- Purpose: smooth 1ms quantization step (0/0.767rad/s) and improve speed-loop damping continuity.
-- Expected gain: lower residual oscillation and current ripple under static/light disturbance.
-- Pending: MCP/VOFA+ post-flash verification on `pitch_gyro`, `pitch_given_current`, `pitch_relative`.
-## 2026-02-25 Pitch ENCONDE PID Finalize
-- Status: Mitigated（待长跑）
-- Solidified `PITCH_ENCODE_RELATIVE_PID` to verified values: `Kp=24.0`, `Ki=0.0`, `Kd=0.0`, `max_out=10.0`, `max_iout=0.5`.
-- Rationale: avoids static-friction induced integrator windup in linkage mechanism and removes per-boot online retune.
-- Pending: long-run thermal validation under continuous operation.
+### Pitch 自适应重力前馈
+- 状态：In Progress（7a→7b→7c→7d 四轮迭代，未完成闭环验证）
+- 当前方案：LMS 自适应 `I_ff = K_hat*cos(θ) + b_hat`，误差自适应 gamma，硬限幅 ±16000，遥测通道 `55:ff_k_hat / 56:ff_b_hat`
+- 最新文档：`2026-02-27_pitch_ff_adaptive_gamma.md`（7d）
+- 关联文档：`2026-02-27_pitch_gravity_feedforward_bullet_count.md`（7a，已被 7b 替代）、`2026-02-27_pitch_adaptive_gravity_feedforward.md`（7b）、`2026-02-27_pitch_adaptive_ff_deadlock_fix.md`（7b-fix）、`2026-02-27_pitch_ff_decouple_telemetry.md`（7c）
+- 待办：装弹工况闭环验证（收敛时间、稳态误差、电流纹波）；连续 4 轮未闭环，按规则 6.2 下一步应先采数据再改码
+
+### Shoot 发射链路（摩擦轮 CAN + 拨轮双环 + 热量预测）
+- 状态：**Passed**（空载 + 实弹验证通过，2026-03-07）
+- 最新文档：`2026-03-07_shoot_hust_validation_and_fixes.md`
+- 当前方案：
+  - 摩擦轮：双 3508 CAN 速度闭环
+  - 拨轮：`trigger_pos_pid`（位置外环）+ `trigger_spd_pid`（速度内环）
+  - 单发：`SHOOT_BULLET` 位置步进一格后回 `SHOOT_READY_BULLET`
+  - 连发：`SHOOT_CONTINUE_BULLET` 跳过位置环，速度环直驱（`3500/4500 rpm`）
+  - 反转：`reverse` 边沿触发一格回退（无旧堵转状态机）
+  - 目标管理：`trigger_ecd_set` 在 `SHOOT_STOP/SHOOT_READY_FRIC` 回贴反馈，其余 armed 态保持持仓目标
+  - 状态集：`STOP/READY_FRIC/READY_BULLET/BULLET/CONTINUE_BULLET`（5 态）
+  - 步进：`TRIGGER_ONEGRID=36864`（1/8 turn）
+  - 热量：`local_heat` 预测 + 裁判热量校准 + `R` 键爆发模式
+  - 遥测现状：`shoot_mode/given_current/speed/speed_set/trigger_ecd_fdb/trigger_ecd_set/local_heat/bullet_cnt/trigger_sw/reverse_flag/referee_heat` 已可观测
+- 待办：完成 Keil 编译与空载 12 项验收（静态、单发、连发、反转、热量门控）；空载未闭环前继续禁止实弹
+- 2026-03-06 v4 补充：
+  - 本地代码已落地 HUST 风格“命令层 + executor”重构，新增 `application/shoot_logic.c/h`
+  - `trigger_ecd_set` 现在由 executor 独占，手动反转改为 one-grid reverse recover
+  - 长按 `reverse_trigger=1` 已增加边沿门控，避免连续多格回退
+  - `given_current` 已增加 `±8000` 末端限流
+  - FireWater 代码层已补入 `trigger_sw/reverse_flag/referee_heat`
+  - 主机侧 `tests/shoot_logic_test.c` 已通过，覆盖 idle hold、single fire、manual reverse 和 reverse 边沿门控
+  - 但当前仍未完成 Keil 编译、烧录和新固件板端空载 20 发复验，所以状态不能改判为 `Passed`
+- 2026-03-06 v5 补充：
+  - `COM22` 板端实测已持续输出 `67` 列 FireWater 帧
+  - `D:\tools\stm32-telemetry-mcp\frame_parser.py` 原先仍按 `65` 列解析，导致 `capture()` 返回 `0` 帧
+  - 本轮已将 parser 补齐到 `67` 列，并新增 `trigger_sw/reverse_flag/referee_heat` 映射
+  - 修复后用 `stm32-telemetry-mcp` 试采 `COM22`，`2.5s` 内拿到 `123` 帧
+  - 当前板端验收阻塞点已不再是串口/工具链，而是尚未完成新的空载 20 发采集
+- 2026-03-06 v6 补充：
+  - 新固件上板后执行 READY 静态 `5s` 复验，证据见 `data/tune_2026-03-06_shoot_hust_acceptance_live_003_static_ready.csv`
+  - `shoot_mode` 全程 `2(READY_BULLET)`，`trigger_ecd_set` 全程固定 `0`
+  - 但 `trigger_ecd_fdb` 在 `-90618 ~ 96767` 间往返，误差符号翻转 `41` 次
+  - `trigger_cur` 全程饱和在 `±8000`，`trigger_spd_set` 全程打满 `±8000`
+  - `trigger_sw=0`、`reverse_flag=0` 全程未变化，说明 READY 自激并非微动或反转路径触发
+  - 因 READY 静态门再次失败，空载单发 20 次与实弹继续禁止
+- 2026-03-06 v7 补充：
+  - 根因已进一步收敛到“未就绪阶段 stale setpoint”
+  - 证据是工具恢复后的 STOP 基线中，`trigger_ecd_fdb=-258020` 但 `trigger_ecd_set=0`
+  - 说明 executor 在 `STOP/READY_FRIC` 阶段只在首次进入 idle hold 时贴目标，早期无效反馈值会被一直带到 `READY_BULLET`
+  - 已在 `application/shoot_logic.c` 中改为：`!arm_enable || !fric_ready` 时每周期执行 `trigger_ecd_set = trigger_ecd_fdb`
+  - 新增主机侧回归测试 `test_disarmed_or_wait_fric_keeps_target_attached_to_latest_feedback()`，用于防止启动阶段再次锁住旧 setpoint
+  - 当前仍待烧录并重做 READY 静态 5s 复验，验证该修复是否足以消除自激
+- 2026-03-06 v8 补充：
+  - 本轮修复烧录后，STOP 基线板端复验已通过，证据见 `data/tune_2026-03-06_shoot_hust_acceptance_live_004_postfix_stop_baseline.csv`
+  - `shoot_mode=0` 全程稳定，`trigger_ecd_fdb = trigger_ecd_set = -4042`
+  - `fdb-set` 全程 `0`，`trigger_cur=0`，说明 stale setpoint 已不再停在旧值
+  - 下一步只剩重新执行 READY 静态 `5s`，判断持仓自激是否已一并消失
+- 2026-03-06 v9 补充：
+  - 修复后 READY 静态 `5s` 复验已通过，证据见 `data/tune_2026-03-06_shoot_hust_acceptance_live_005_ready_static_after_fix.csv`
+  - `shoot_mode` 正常过渡到 `READY_BULLET` 后稳定，`trigger_ecd_fdb = trigger_ecd_set = -4041`
+  - `trigger_cur/trigger_spd/trigger_spd_set` 全程为 `0`，不再出现静态持仓自激
+  - `trigger_sw=0`、`reverse_flag=0` 全程稳定
+  - 当前门禁已从“禁止进入单发”推进到“允许进入空载单发 20 次”
+- 2026-03-06 v10 补充：
+  - 修复后空载单发 `5` 发预验收失败，证据见 `data/tune_2026-03-06_shoot_hust_acceptance_live_006_empty_single_5shots.csv`
+  - 通过项：`bullet_cnt` `0->5`，每次只 `+1`；未观测到 `CONTINUE_BULLET`；`READY_BULLET` 内未观察到周期性 setpoint 回写
+  - 失败项：单发后 `trigger_cur` 在各发间恢复区间持续饱和 `±8000`，未回到低电流；`trigger_ecd_fdb-trigger_ecd_set` 峰值明显劣于基线 `data/tune_2026-03-06_003.csv`
+  - 当前同口径前 `5` 发 `peak|fdb-set|` 最大值 `99616`，基线前 `5` 发为 `53924`
+  - 因动态空载门未通过，后续 `15` 发与实弹继续禁止
+- 2026-03-06 v11 补充：
+  - 已按 HUST 单发收尾语义再次修正 executor
+  - 当前实现不再在 `|pos_err| < 5000` 时立刻回贴当前位置，而是：
+    - `5000` 仅作为本发动作计数阈值
+    - 只有在输入已释放且 `|pos_err| < 1000` 时，才 `DONE + 回贴当前位`
+  - 主机侧新增 2 条回归测试，覆盖“不要过早 DONE”和“按住 trigger 不得提前 DONE”
+  - 当前待烧录并重新执行空载单发 `5` 发预验收
+- 2026-03-06 v12 补充：
+  - 已烧录 HUST 收尾语义修复，并完成空载单发 `5` 发复验，证据见 `data/tune_2026-03-06_shoot_hust_acceptance_live_007_empty_single_5shots_hust_finish.csv`
+  - 通过项：`bullet_cnt` `0->5`，每次只 `+1`；未观测到 `CONTINUE_BULLET`；`READY_BULLET` 内未观察到周期性 setpoint 回写
+  - 改善项：前 `5` 发 `peak|fdb-set|` 最大值由 `99616` 回落到 `83377`，平均值由 `76977.6` 回落到 `73486.6`
+  - 未通过项：相对基线 `data/tune_2026-03-06_003.csv` 仍明显恶化；各发恢复区间 `trigger_cur` 仍几乎全程饱和 `±8000`；`SHOOT_DONE` 未稳定显式出现
+  - 当前判定仍为 `Failed`，继续禁止空载 `20` 发扩测与实弹
+- 2026-03-06 v13 补充：
+  - 已完成 shoot executor 集成层 6 项修复：
+    - 持仓入口双 PID 清零
+    - jam request flag 化，移除 `shoot.c` 对 executor / command 内部字段的越权赋值
+    - 连发计弹移入 executor
+    - `trigger_ecd_set/fdb/last_fire` 改为 `int32_t`
+    - 删除 `SHOOT_READY` 死代码但保持 `shoot_mode` 数值兼容
+    - `single_fire_req` 消费后显式清零
+  - 主机侧新增 3 条测试并已全绿：
+    - jam abandon 回 idle hold
+    - continuous run one-grid 计弹
+    - single_fire_req 消费后清零
+  - 当前仍未重新烧录板端，因此 Shoot 总状态保持 `Failed`，下一步是复烧后重做空载 `5` 发
+
+### WiFi 桥接（USART1 + ESP32）
+- 状态：Blocked - 需数据
+- 最新文档：`2026-02-26_wifi_bridge_migrate_to_usart1.md`
+- 待办：实机联调（capture/set/get/dump 压测、丢帧统计、遥控链路回归）
+
+### USB/WiFi 遥测互斥 + DBUS 稳定性
+- 状态：In Progress
+- 最新文档：`2026-02-27_usb_task_priority_below_normal_dbus_offline_fix.md`
+- 关联：`2026-02-27_usb_telem_mode_mutex_drop_split.md`
+- 待办：Keil 三模式编译验证 + 板端 WiFi 模式 5min 无 DBUS 误报
+
+### USB CDC 在线调参
+- 状态：In Progress
+- 最新文档：`2026-02-24_usb_cdc_online_pid_tuning.md`
+- 待办：Keil 编译 + 板端命令交互验证
+
+### Pitch RC 灵敏度
+- 状态：In Progress
+- 最新文档：`2026-02-24_pitch_rc_sensitivity_reduce.md`
+- 参数：`PITCH_RC_SEN = -0.000001f`（原 -0.000004f）
+- 待办：VOFA+ 验证 rc_ch3 → pitch_abs_set 斜率
+
+## 当前关键参数快照
+
+- `application/chassis_task.h`：`CHASSIS_FOLLOW_GIMBAL_PID` = `2.0/0.0/100.0/3.0/1.0`
+- `application/chassis_task.c`：刹车逻辑已删除，`wz_set = PID_calc(...)` 无负号
+- `application/gimbal_task.h`：
+  - `PITCH_SPEED_PID` = `800/10/0/15000/3000`
+  - `PITCH_ENCODE_RELATIVE_PID` = `24.0/0.0/0.0/10.0/0.5`
+  - `PITCH_GYRO_ABSOLUTE_PID` = `5.0/0.3/0.1/5.0/1.0`
+  - `PITCH_RC_SEN = -0.000001f`
+  - Adaptive FF: `GAMMA_BASE=0.002, GAMMA_ERR_GAIN=0.05, GAMMA_MAX=0.02, ALPHA_DOT_MAX=50.0`
+- `application/shoot.h`：
+  - `TRIGGER_POS_PID` = `0.4/0.02/0.0, max_out=20000, max_iout=1500`
+  - `TRIGGER_SPD_PID` = `6.2/3.2/0.0, max_out=10000, max_iout=1000, deadzone=50`
+  - `TRIGGER_CAN_CURRENT_LIMIT=10000`（与 HUST speed PID OutMax 对齐）
+  - `TRIGGER_ONEGRID=36864, TRIGGER_POS_THRESHOLD=5000`
+  - `FRIC_SPEED_LOW=4900, FRIC_SPEED_HIGH=7400`（限 25m/s 弹速）
+  - `HEAT_LIMIT_SAFE=80, HEAT_LIMIT_BURST=180, HEAT_COOL_RATE=12/s`
+
+### VT03 UART 模式切换（USART1/USART6）
+- 状态：In Progress（代码已落地，待三模式编译和实机链路验证）
+- 最新文档：`2026-02-28_vt03_uart_mode_switching.md`
+- 当前方案：
+  - `CURRENT_UART_MODE` 统一切换 `DEBUG_WIFI / DEBUG_VT03 / COMPETITION`
+  - `USART6` 在 referee 与 VT03 间切换（115200/921600）
+  - `USART1` 在 WiFi 与 VT03 间切换（115200/921600）
+  - VT03 解析模块输出复用 `rc_ctrl`，并上报 `VT03_TOE`
+- 待办：Keil 三模式编译矩阵、mode_sw 映射核对、VT03 断链检测回归
+
+### VT03 Keyboard Action（键鼠动作集中层）
+- 状态：In Progress（v7 问题已开始收敛，仍需回归闭环）
+- 最新文档：`2026-03-02_shoot_single_fire_reverse_grid_fix.md`
+- 当前方案：
+  - 新增 `application/keyboard_action.c/h` 统一输出 `keyboard_cmd_t`
+  - `gimbal_task` 1ms 周期调用 `keyboard_action_update()`
+  - `chassis/gimbal/shoot` 按命令消费，实现 DBUS/VT03 双源兼容
+- 本轮补丁（v5）：
+  - `shoot.c`：`READY_BULLET` 取消自动拨轮旋转；允许 `READY_BULLET` 直接响应 `trigger/mouse` 开火边沿
+  - `shoot.c`：键盘发射辅助统一门控为 `s1=MID` 或 `VT03在线且s0!=DOWN`
+  - `usb_task.c`：`event_bits` 新增 `bit8..20`（VT13 原始键状态 + keyboard_cmd 脉冲 + dial 方向 + s0门控位）
+- MCP 侧状态（v6）：
+  - `D:\tools\stm32-telemetry-mcp` 已支持 `event_bits -> evt_*` 虚拟通道展开
+  - 可直接订阅：`evt_fn1_cur/evt_fn2_cur/evt_trigger_cur/evt_cmd_* /evt_dial_pos/evt_dial_neg/evt_s0_not_down`
+- 本轮遥测结论（项目1~8，CSV证据已回填到 v7）：
+  - 项目1/6/7通过；
+  - 项目2~5出现“输入可见但执行链未闭环”；
+  - 项目8失败（发射后速度越过 15~25m/s 安全区间）。
+- 本轮补丁（2026-03-02 v2）：
+  - `vt03_link.c`：`s[1]` 默认值 `DOWN -> MID`，消除 `shoot_set_mode` 假边沿。
+  - `vt03_link.c`：`mouse.press_l/press_r` 强制清零，消除 VT13 `d[14]` 噪声导致的自动开火。
+- 本轮补丁（2026-03-02 v3）：
+  - `shoot.c`：移除 `shoot_bullet_control()` 内 `key==SWITCH_TRIGGER_OFF` 的提前 DONE 退出。
+  - `shoot.h`：`TRIGGER_ONEGRID` 回调至 `36864`，与 1/8 分度一致。
+- 本轮补丁（2026-03-02 v4）：
+  - `shoot.c`：`READY_BULLET` 与 `SHOOT_DONE` 改为位置环计算 `speed_set`（目标点不跟随）。
+  - `shoot.c`：零电流门控边界 `<= READY_BULLET -> < READY_BULLET`，保留 READY_BULLET 制动电流。
+- 本轮补丁（2026-03-02 v5）：
+  - `shoot.c`：`READY_BULLET` 恢复为零速度 + 位置跟随，制动不在 READY_BULLET 执行。
+  - `shoot.c`：零电流门控恢复 `<= READY_BULLET`，避免 READY_BULLET 满电流堵转。
+  - `shoot.c`：`shoot_set_mode` 的 DONE->READY_BULLET 增加低速判据 `fabs(speed)<0.3f` 与 `500ms` 兜底超时。
+- 本轮补丁（2026-03-02 v6）：
+  - `shoot.h`：新增 `TRIGGER_POS_MAX_OUT_HOLD/FIRE` 与 `MAX_REVERSE_COUNT`，`shoot_control_t` 新增 `reverse_count`。
+  - `shoot.c`：`READY_BULLET` 与 `SHOOT_DONE` 改为低限幅位置 PID 持仓，`BULLET` 恢复全力矩 `max_out`。
+  - `shoot.c`：零电流门控改为 `<= SHOOT_READY_FRIC`，并在堵转反转逻辑加入“最多 3 次后放弃本次”。 
+- 待办：
+  - 完成剩余 `dial` 脉冲化与 `vt03_trigger` 保持窗口改造；
+  - 完成后按项目1~8逐项复测并更新状态。
+
+## 风险日志对应关系
+
+- MID 跟随 PID 方向反转：`risk_log.md` 2026-02-23 条目（Mitigated：方向已修复，Ki 待调）
+- UP 小陀螺平移画圆：`risk_log.md` 2026-02-24 条目（Mitigated，缺 VOFA+/长跑）
+- Pitch 自适应前馈迭代：`risk_log.md` 2026-02-27 条目（In Progress，按规则 6.2 需先采数据）
+- Shoot 拨轮双环与热量预测：`risk_log.md` 2026-02-28 条目（In Progress，待实机验收）
+- Shoot 状态机 HUST 对齐：`risk_log.md` 2026-03-06 条目（Open，空载单发后 `READY_BULLET` 持仓持续自激）
+- Shoot 单发/反转/格数修复：`risk_log.md` 2026-03-02 条目（In Progress，待回归）
+- VT03 假边沿/鼠标噪声自动开火：`risk_log.md` 2026-03-02 条目（In Progress，待回归）
+- Shoot BULLET 微动提前退出：`risk_log.md` 2026-03-02 条目（In Progress，待回归）
+- Shoot READY_BULLET overshoot 自由滑行：`risk_log.md` 2026-03-02 条目（In Progress，待回归）
+- Shoot READY_BULLET 堵转满电流：`risk_log.md` 2026-03-02 条目（In Progress，待回归）
+- Shoot 堵转反转超限与放弃策略：`risk_log.md` 2026-03-02 条目（In Progress，待回归）
+- Shoot HUST 控制核心替换：`risk_log.md` 2026-03-07 条目（In Progress，待 Keil/板端复验）
+
+- 2026-03-06 v14 补充：
+  - 已按 READY_BULLET 极限环根因收窄 hold 阶段位置环限幅：
+    - `TRIGGER_POS_MAX_OUT_HOLD = 15.0f`
+    - `TRIGGER_POS_MAX_IOUT_HOLD = 10.0f`
+  - `SHOOT_READY_BULLET/SHOOT_DONE` 分支已同步切换 `max_out/max_iout`
+  - `shoot_bullet_control()` 中 fire 阶段已恢复 `max_out/max_iout`
+  - 主机侧既有测试继续通过
+  - 当前仍未重新烧录板端，因此 Shoot 总状态继续保持 `Failed`
+
+- 2026-03-07 v16 补充：
+  - 板端验证完成，Shoot 状态从 `In Progress` 升级为 `Passed`
+  - 测试通过项：STOP 基线、Enable→Ready、单发、连发、反转、实弹
+  - 修复 3 项：
+    1. 移除 Butterworth 速度滤波器（振荡根因）
+    2. VT03 trigger 改用 `vt03_ext.trigger` 原始持续状态（连发无法触发根因）
+    3. `FRIC_SPEED_HIGH` 8000→7400（限 25m/s 弹速）
+  - 累计发射 137 发（空载+实弹），无异常
+  - 详见 `docs/ai_sessions/2026-03-07_shoot_hust_validation_and_fixes.md`
+
+## 2026-03-24 Supplement: Power Limit + Referee Client UI
+
+- 同步日期：`2026-03-24`
+- `application/chassis_power_control.c/h`
+  - 已切到“功率预测模型 + 电流反解”限流。
+  - 2026-03-24 v2：按 `main` 对齐为 `120W` 上限 + `50J` buffer PID 目标 + `20J` 应急线性降额；仍不含 `supercap`。
+  - 2026-03-24 v3：模型系数改为 `2.16e-6 / 2.09e-7 / 1.83e-7 / 2.21`，以用户确认值覆盖本地旧 `main` 参数。
+  - 2026-03-25 v4：新增内部观测量 `power_est/effective_limit`，并补 `target_power < 0` 防御；尚未接到 USB 遥测输出。
+  - 当前范围不包含超级电容。
+- `application/rm_ui.c/h`
+  - 新增裁判客户端 UI 发送模块。
+  - 已实现固定准心、`FOLLOW/SPIN`、`LOW/HIGH`、退弹成功绿灯闪烁。
+- `application/referee_usart_task.c`
+  - `REFEREE` 任务现负责 UI 刷新调度，但未改变任务周期和优先级。
+- 当前状态
+  - 代码完成：`In Progress`
+  - 主机验证：`rm_ui.c` 已做 `gcc -fsyntax-only` 语法检查通过。
+  - 板端验证：`Pending`
+## 2026-03-26 增量更新
+
+### Referee UI DMA 发送
+- 状态：In Progress
+- 最新文档：`2026-03-26_rm_ui_dma_tx.md`
+- 当前方案：`application/rm_ui.c` 已将 UI 帧发送从阻塞 `HAL_UART_Transmit` 改为 `USART6 TX DMA`；DMA 忙时跳过本帧，下一周期重试。
+- 已完成：移除 `rm_ui_send_interactive()` 阻塞发送路径，增加静态 DMA 源缓冲，避免栈上 `frame` 在 DMA 发送期间失效。
+- 待办：Keil 整工程编译；板端验证 `REFEREE_TOE` 掉线率、UI 刷新与断线重连。
+
+## 2026-03-26 Supplement: USBTask `TELEM_MODE_NONE` 零开销
+
+- 状态：In Progress（代码已改，待 Keil + 板端验收）
+- 最新文档：`2026-03-26_usb_task_telem_none_zero_overhead.md`
+- 当前语义：
+  - `TELEM_MODE_NONE`：`usb_task` 入口立即 `vTaskSuspend(NULL)`，不初始化 USB/WiFi，不轮询命令。
+  - `TELEM_MODE_USB/WIFI`：保持原有初始化与循环节拍不变。
+- 待办：
+  - Keil 三模式编译（0/1/2）零 warning/zero error。
+  - NONE 模式 `.map` 核对 `usb_buf` 等静态符号已裁剪。
+  - 板测试确认 USB 任务不再消耗运行时 slices。
+
+## 2026-04-06 Supplement: Power Limit Default Conservative
+
+- 状态：`In Progress`
+- 最新文档：`2026-04-06_chassis_power_limit_default_conservative.md`
+- 当前语义：
+  - `application/chassis_power_control.h` 中 `POWER_LIMIT_AGGRESSIVE` 默认值已从 `1` 切回 `0`
+  - 未在 Keil 工程中显式定义该宏时，默认构建将使用 `BUFFER_ENERGY_SETPOINT=50.0f`
+  - `application/chassis_task.c` 同步走保守版 `buffer_pid` 参数：`{2.0, 0.1, 0.0}`，`max_out/max_iout = 40/20`
+- 待办：
+  - 板端做 conservative/aggressive A/B 对比，确认默认发布配置
+  - 若继续使用 aggressive，改为在 Keil 工程中显式配置 `POWER_LIMIT_AGGRESSIVE=1`

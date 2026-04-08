@@ -20,7 +20,7 @@
 #include "cmsis_os.h"
 #include "bsp_buzzer.h"
 #include "detect_task.h"
-
+#include "uart_mode.h"
 static void buzzer_warn_error(uint8_t num);
 
 const error_t *error_list_test_local;
@@ -51,6 +51,20 @@ void test_task(void const * argument)
         //·¢ÏÖ´íÎó
         for(error_num = 0; error_num < REFEREE_TOE; error_num++)
         {
+            if (error_num == DBUS_TOE)
+            {
+#if VT03_ENABLE
+                if (error_list_test_local[DBUS_TOE].error_exist && error_list_test_local[VT03_TOE].error_exist)
+#else
+                if (error_list_test_local[DBUS_TOE].error_exist)
+#endif
+                {
+                    error = 1;
+                    break;
+                }
+                continue;
+            }
+
             if(error_list_test_local[error_num].error_exist)
             {
                 error = 1;

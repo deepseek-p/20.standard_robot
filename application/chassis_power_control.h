@@ -1,39 +1,53 @@
 /**
   ****************************(C) COPYRIGHT 2019 DJI****************************
   * @file       chassis_power_control.c/h
-  * @brief      chassis power control.µ×ÅÌ¹¦ÂÊ¿ØÖÆ
-  * @note       this is only controling 80 w power, mainly limit motor current set.
-  *             if power limit is 40w, reduce the value JUDGE_TOTAL_CURRENT_LIMIT 
-  *             and POWER_CURRENT_LIMIT, and chassis max speed (include max_vx_speed, min_vx_speed)
-  *             Ö»¿ØÖÆ80w¹¦ÂÊ£¬Ö÷ÒªÍ¨¹ı¿ØÖÆµç»úµçÁ÷Éè¶¨Öµ,Èç¹ûÏŞÖÆ¹¦ÂÊÊÇ40w£¬¼õÉÙ
-  *             JUDGE_TOTAL_CURRENT_LIMITºÍPOWER_CURRENT_LIMITµÄÖµ£¬»¹ÓĞµ×ÅÌ×î´óËÙ¶È
-  *             (°üÀ¨max_vx_speed, min_vx_speed)
-  * @history
-  *  Version    Date            Author          Modification
-  *  V1.1.0     Nov-11-2019     RM              1. add chassis power control
-  *
-  @verbatim
-  ==============================================================================
-
-  ==============================================================================
-  @endverbatim
+  * @brief      chassis power control
+  * @note       Uses a motor power prediction model and quadratic back-solve
+  *             to limit chassis motor output when estimated power exceeds the
+  *             configured budget.
   ****************************(C) COPYRIGHT 2019 DJI****************************
   */
 #ifndef CHASSIS_POWER_CONTROL_H
 #define CHASSIS_POWER_CONTROL_H
+
 #include "chassis_task.h"
 #include "main.h"
 
-/**
-  * @brief          limit the power, mainly limit motor current
-  * @param[in]      chassis_power_control: chassis data 
-  * @retval         none
-  */
-/**
-  * @brief          ÏŞÖÆ¹¦ÂÊ£¬Ö÷ÒªÏŞÖÆµç»úµçÁ÷
-  * @param[in]      chassis_power_control: µ×ÅÌÊı¾İ
-  * @retval         none
-  */
+/*
+ * åŠŸç‡é™åˆ¶æ¨¡å¼åˆ‡æ¢è¯´æ˜ï¼š
+ * 1) ä¸´æ—¶å¿«é€Ÿåˆ‡æ¢ï¼šç›´æ¥æŠŠä¸‹é¢çš„ POWER_LIMIT_AGGRESSIVE ä» 0 æ”¹æˆ 1ã€‚
+ * 2) æ¨èå·¥ç¨‹åˆ‡æ¢ï¼šåœ¨ Keil å·¥ç¨‹é‡Œæ·»åŠ ç¼–è¯‘å® POWER_LIMIT_AGGRESSIVE=1ã€‚
+ *
+ * 0 = ä¿å®ˆç‰ˆ
+ *     - buffer ç›®æ ‡å€¼ä¸º 50J
+ *     - chassis_task.c ä¸­ä½¿ç”¨æ›´æ¸©å’Œçš„ buffer PID å‚æ•°
+ *
+ * 1 = æ¿€è¿›ç‰ˆ
+ *     - buffer ç›®æ ‡å€¼ä¸º 45J
+ *     - chassis_task.c ä¸­ä½¿ç”¨æ›´æ¿€è¿›çš„ buffer PID å‚æ•°
+ *
+ * æ³¨æ„ï¼š
+ * - å¤´æ–‡ä»¶é‡Œçš„é»˜è®¤å€¼å’Œ Keil å·¥ç¨‹é‡Œçš„ç¼–è¯‘å®è¦ä¿æŒä¸€è‡´ã€‚
+ * - ä¸è¦åŒæ—¶åœ¨å¤šä¸ªåœ°æ–¹åˆ‡æ¨¡å¼ï¼Œé¿å…ç¼–å‡ºæ¥çš„å›ºä»¶å’Œé¢„æœŸä¸ä¸€è‡´ã€‚
+ */
+#ifndef POWER_LIMIT_AGGRESSIVE
+#define POWER_LIMIT_AGGRESSIVE          0   /* 0=V1 conservative, 1=V2 aggressive */
+#endif
+
+#if POWER_LIMIT_AGGRESSIVE
+#define BUFFER_ENERGY_SETPOINT          45.0f
+#else
+#define BUFFER_ENERGY_SETPOINT          50.0f
+#endif
+#define BUFFER_EMERGENCY_THRESHOLD      20.0f
+#define EFFECTIVE_POWER_LIMIT_MIN       20.0f
+
+/* M3508 + ESC fitted power model coefficients. */
+#define MOTOR_TORQUE_COEFF              1.99688994e-6f
+#define MOTOR_K2                        1.453e-07f
+#define MOTOR_A                         1.23e-07f
+#define MOTOR_CONSTANT                  4.081f
+
 extern void chassis_power_control(chassis_move_t *chassis_power_control);
 
 #endif
